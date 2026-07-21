@@ -1,0 +1,12 @@
+{
+  "name": "CDS Form - Encuestas de Satisfacción",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma de encuestas de satisfacción corporativas similar a Typeform",
+  "keywords": ["surveys", "satisfaction", "feedback", "forms", "corporate"],
+  "author": "CDS Team",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

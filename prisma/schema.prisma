@@ -1,0 +1,251 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "cockroachdb"
+}
+
+// User model for authentication and roles
+model User {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String    @unique
+  name              String
+  role              UserRole  @default(VIEWER)
+  department        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  surveys           Survey[]
+  responses         Response[]
+  departmentLeads   DepartmentConfig[]
+  
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+// Survey model - Main surveys/questionnaires
+model Survey {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String
+  description       String?
+  status            SurveyStatus @default(DRAFT)
+  createdBy         String    @db.Uuid
+  creator           User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  
+  // Settings
+  isPublished       Boolean   @default(false)
+  allowMultiple     Boolean   @default(false)
+  allowAnonymous    Boolean   @default(true)
+  requireEmail      Boolean   @default(false)
+  
+  // Dates
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  publishedAt       DateTime?
+  expiresAt         DateTime?
+  
+  // Display settings
+  showProgressBar   Boolean   @default(true)
+  randomizeQuestions Boolean @default(false)
+  
+  // Relations
+  questions         Question[]
+  responses         Response[]
+  departmentConfigs DepartmentConfig[]
+  metadata          SurveyMetadata?
+  
+  @@index([createdBy])
+  @@index([status])
+  @@index([isPublished])
+}
+
+enum SurveyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  CLOSED
+}
+
+// Question model - Survey questions
+model Question {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId          String    @db.Uuid
+  survey            Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  
+  // Content
+  title             String
+  description       String?
+  type              QuestionType
+  required          Boolean   @default(true)
+  order             Int
+  
+  // Settings based on type
+  options           String?   @db.String // JSON array for multiple choice
+  minValue          Int?      // For rating
+  maxValue          Int?      // For rating
+  minLabel          String?   // For rating
+  maxLabel          String?   // For rating
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  answers           Answer[]
+  
+  @@unique([surveyId, order])
+  @@index([surveyId])
+}
+
+enum QuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  MULTIPLE_CHOICE
+  CHECKBOX
+  RATING
+  SCALE
+  DATE
+  EMAIL
+  NET_PROMOTER_SCORE // NPS
+}
+
+// Answer model - Individual answers to questions
+model Answer {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId        String    @db.Uuid
+  question          Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  responseId        String    @db.Uuid
+  response          Response  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  
+  // Answer content
+  value             String?   // Text, selected option, or serialized value
+  selectedOptions   String?   @db.String // JSON array for checkboxes
+  
+  createdAt         DateTime  @default(now())
+  
+  @@index([questionId])
+  @@index([responseId])
+}
+
+// Response model - Complete survey responses
+model Response {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId          String    @db.Uuid
+  survey            Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  
+  respondentId      String?   @db.Uuid
+  respondent        User?     @relation(fields: [respondentId], references: [id], onDelete: SetNull)
+  
+  // Respondent info (for anonymous responses)
+  respondentEmail   String?
+  respondentName    String?
+  
+  // Status
+  status            ResponseStatus @default(STARTED)
+  completedAt       DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  answers           Answer[]
+  
+  @@index([surveyId])
+  @@index([respondentId])
+  @@index([respondentEmail])
+  @@index([status])
+}
+
+enum ResponseStatus {
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+// Department Configuration - For sending emails to department leads
+model DepartmentConfig {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId          String    @db.Uuid
+  survey            Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  
+  department        String
+  responsibleId     String    @db.Uuid
+  responsible       User      @relation(fields: [responsibleId], references: [id])
+  
+  // Email settings
+  sendSummary       Boolean   @default(true)
+  summaryFrequency  EmailFrequency @default(DAILY)
+  sendOnCompletion  Boolean   @default(false)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([surveyId, department])
+  @@index([surveyId])
+  @@index([responsibleId])
+}
+
+enum EmailFrequency {
+  IMMEDIATELY
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+// Survey Metadata - Analytics and statistics
+model SurveyMetadata {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId          String    @unique @db.Uuid
+  survey            Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  
+  totalResponses    Int       @default(0)
+  completedResponses Int      @default(0)
+  abandonedResponses Int      @default(0)
+  
+  averageCompletionTime Int?  // in seconds
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([surveyId])
+}
+
+// Email Log - Track sent emails
+model EmailLog {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  
+  to                String
+  subject           String
+  type              EmailType
+  
+  status            EmailStatus
+  errorMessage      String?
+  
+  sentAt            DateTime  @default(now())
+  
+  @@index([to])
+  @@index([sentAt])
+}
+
+enum EmailType {
+  SURVEY_INVITATION
+  SUMMARY_REPORT
+  COMPLETION_NOTIFICATION
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  BOUNCED
+}

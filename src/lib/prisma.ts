@@ -4,9 +4,15 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
+  const url = process.env.DATABASE_URL!;
+  const connStr = process.env.VERCEL
+    ? url.replace("sslmode=verify-full", "sslmode=require")
+    : url;
+
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: connStr,
   });
+
   return new PrismaClient({
     adapter,
     log:

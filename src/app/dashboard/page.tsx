@@ -121,10 +121,13 @@ export default function Dashboard() {
       fetch("/api/analytics").then((r) => r.json()),
     ])
       .then(([surveyData, analyticsData]) => {
-        setSurveys(surveyData.surveys || []);
-        setAnalytics(analyticsData);
+        setSurveys(surveyData?.surveys || []);
+        setAnalytics(analyticsData?.satisfactionBySurvey ? analyticsData : null);
       })
-      .catch(console.error)
+      .catch(() => {
+        setSurveys([]);
+        setAnalytics(null);
+      })
       .finally(() => setLoading(false));
   }, [filter]);
 
@@ -145,7 +148,7 @@ export default function Dashboard() {
       : "0",
   };
 
-  const statusData = analytics
+  const statusData = analytics?.statusCounts
     ? Object.entries(analytics.statusCounts)
         .filter(([, v]) => v > 0)
         .map(([name, value]) => ({ name: STATUS_MAP[name] || name, value, color: STATUS_COLORS[name] || "#94a3b8" }))

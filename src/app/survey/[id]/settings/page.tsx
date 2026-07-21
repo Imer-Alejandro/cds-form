@@ -141,7 +141,7 @@ export default function SurveySettingsPage() {
   if (loading) return <LoadingSpinner text="Cargando configuración..." />;
   if (!survey) return null;
 
-  const surveyUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/survey/${surveyId}`;
+  const surveyUrl = `${typeof window !== "undefined" ? window.location.origin : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/survey/${surveyId}`;
 
   return (
     <main className="min-h-screen bg-slate-50 py-8 px-6">

@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Survey not found" }, { status: 404 });
     }
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
     const surveyUrl = `${baseUrl}/survey/${surveyId}`;
 
     const results = [];

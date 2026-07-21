@@ -1,5 +1,12 @@
+function getBaseUrl(): string {
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  return "http://localhost:3000";
+}
+
 export function generateSurveyUrl(surveyId: string, baseUrl: string = ""): string {
-  const url = baseUrl || process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const url = baseUrl || getBaseUrl();
   return `${url}/survey/${surveyId}`;
 }
 
@@ -27,8 +34,7 @@ export function calculateAverageCompletionTime(
 }
 
 export function generateShareableLink(surveyId: string): string {
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  return generateSurveyUrl(surveyId, baseUrl);
+  return generateSurveyUrl(surveyId, getBaseUrl());
 }
 
 export function parseJsonSafe<T>(json: string | null, fallback: T): T {

@@ -32,6 +32,7 @@ export default function SurveySettingsPage() {
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
+  const [surveyUrl, setSurveyUrl] = useState("");
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [newDepartment, setNewDepartment] = useState({
@@ -71,6 +72,10 @@ export default function SurveySettingsPage() {
 
   useEffect(() => {
     fetchSurvey();
+  }, [surveyId]);
+
+  useEffect(() => {
+    setSurveyUrl(`${window.location.origin}/survey/${surveyId}`);
   }, [surveyId]);
 
   async function fetchSurvey() {
@@ -140,8 +145,6 @@ export default function SurveySettingsPage() {
 
   if (loading) return <LoadingSpinner text="Cargando configuración..." />;
   if (!survey) return null;
-
-  const surveyUrl = `${typeof window !== "undefined" ? window.location.origin : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/survey/${surveyId}`;
 
   return (
     <main className="min-h-screen bg-slate-50 py-8 px-6">

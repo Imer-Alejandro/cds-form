@@ -50,6 +50,7 @@ export default function RespondSurveyPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [direction, setDirection] = useState(1);
+  const [wentBack, setWentBack] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -103,6 +104,7 @@ export default function RespondSurveyPage() {
 
   function goPrev() {
     setDirection(-1);
+    setWentBack(true);
     setCurrentQuestionIndex((i) => Math.max(0, i - 1));
   }
 
@@ -479,11 +481,11 @@ export default function RespondSurveyPage() {
               <Button onClick={handleSubmit} loading={submitting}>
                 Enviar ✓
               </Button>
-            ) : (
+            ) : wentBack ? (
               <Button onClick={goNext} disabled={!hasAnswer && currentQuestion.required}>
                 Siguiente →
               </Button>
-            )}
+            ) : null}
           </div>
         </motion.div>
       </div>

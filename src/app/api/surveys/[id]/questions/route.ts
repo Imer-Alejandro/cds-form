@@ -150,3 +150,39 @@ export async function DELETE(
     );
   }
 }
+
+// PATCH /api/surveys/[id]/questions - Reorder questions
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { orderedIds } = body;
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return NextResponse.json(
+        { error: "orderedIds array is required" },
+        { status: 400 }
+      );
+    }
+
+    const updates = orderedIds.map((questionId: string, index: number) =>
+      prisma.question.update({
+        where: { id: questionId },
+        data: { order: index + 1 },
+      })
+    );
+
+    await prisma.$transaction(updates);
+
+    return NextResponse.json({ message: "Questions reordered" });
+  } catch (error) {
+    console.error("Error reordering questions:", error);
+    return NextResponse.json(
+      { error: "Failed to reorder questions" },
+      { status: 500 }
+    );
+  }
+}

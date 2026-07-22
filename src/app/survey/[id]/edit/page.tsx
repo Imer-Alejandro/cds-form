@@ -8,6 +8,21 @@ import { LoadingSpinner } from "@/components/Loading";
 import { Modal } from "@/components/Modal";
 import { Alert, showToast } from "@/components/Alert";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Question {
   id: string;
@@ -56,6 +71,97 @@ const emptyQuestion = {
   maxLabel: "",
 };
 
+function SortableQuestion({
+  question,
+  index,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  question: Question;
+  index: number;
+  onEdit: (q: Question) => void;
+  onDelete: (id: string) => void;
+  deleting: string | null;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: question.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const opts = (() => {
+    if (!question.options) return [];
+    try {
+      const parsed = JSON.parse(question.options);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+  const typeInfo = questionTypes.find((t) => t.value === question.type);
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      layout
+      className={`rounded-lg border bg-white p-6 transition shadow-sm ${
+        isDragging ? "border-blue-400 shadow-lg ring-2 ring-blue-500/20" : "border-slate-200 hover:shadow-md"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition shrink-0 touch-none"
+            title="Arrastrar para reordenar"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+              <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+              <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{typeInfo?.icon}</span>
+              <h3 className="text-lg font-semibold text-slate-900 truncate">
+                {index + 1}. {question.title}
+              </h3>
+              {question.required && (
+                <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded whitespace-nowrap">Requerida</span>
+              )}
+            </div>
+            {question.description && (
+              <p className="mt-2 text-sm text-slate-600">{question.description}</p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-500">
+              <span className="bg-slate-100 px-2 py-0.5 rounded">{typeInfo?.label}</span>
+              {opts.length > 0 && (
+                <span className="text-slate-400">· {opts.length} opciones: {opts.slice(0, 3).join(", ")}{opts.length > 3 ? "..." : ""}</span>
+              )}
+              {question.minValue != null && question.maxValue != null && (
+                <span className="text-slate-400">· {question.minValue}–{question.maxValue}{question.minLabel ? ` (${question.minLabel})` : ""}{question.maxLabel ? ` → (${question.maxLabel})` : ""}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 ml-4 shrink-0">
+          <Button size="sm" variant="secondary" onClick={() => onEdit(question)}>Editar</Button>
+          <Button size="sm" variant="danger" onClick={() => onDelete(question.id)} loading={deleting === question.id}>Eliminar</Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function SurveyEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -68,6 +174,10 @@ export default function SurveyEditorPage() {
   const [form, setForm] = useState(emptyQuestion);
   const [newOption, setNewOption] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   useEffect(() => {
     fetchSurvey();
@@ -209,6 +319,30 @@ export default function SurveyEditorPage() {
     }
   }
 
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !survey) return;
+
+    const oldIndex = survey.questions.findIndex((q) => q.id === active.id);
+    const newIndex = survey.questions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(survey.questions, oldIndex, newIndex);
+    setSurvey({ ...survey, questions: reordered });
+
+    try {
+      const response = await fetch(`/api/surveys/${surveyId}/questions`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: reordered.map((q) => q.id) }),
+      });
+      if (!response.ok) throw new Error("Failed to reorder");
+    } catch (error) {
+      showToast("Error al reordenar", "error");
+      await fetchSurvey();
+    }
+  }
+
   async function handlePublish() {
     try {
       const response = await fetch(`/api/surveys/${surveyId}`, {
@@ -280,52 +414,22 @@ export default function SurveyEditorPage() {
 
         {/* Questions List */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-4">
-          <AnimatePresence>
-            {survey.questions.map((question, index) => {
-              const opts = parseOptions(question);
-              const typeInfo = questionTypes.find((t) => t.value === question.type);
-              return (
-                <motion.div
-                  key={question.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  layout
-                  className="rounded-lg border border-slate-200 bg-white p-6 hover:shadow-md transition"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{typeInfo?.icon}</span>
-                        <h3 className="text-lg font-semibold text-slate-900 truncate">
-                          {index + 1}. {question.title}
-                        </h3>
-                        {question.required && (
-                          <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded whitespace-nowrap">Requerida</span>
-                        )}
-                      </div>
-                      {question.description && (
-                        <p className="mt-2 text-sm text-slate-600">{question.description}</p>
-                      )}
-                      <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-500">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded">{typeInfo?.label}</span>
-                        {opts.length > 0 && (
-                          <span className="text-slate-400">· {opts.length} opciones: {opts.slice(0, 3).join(", ")}{opts.length > 3 ? "..." : ""}</span>
-                        )}
-                        {question.minValue != null && question.maxValue != null && (
-                          <span className="text-slate-400">· {question.minValue}–{question.maxValue}{question.minLabel ? ` (${question.minLabel})` : ""}{question.maxLabel ? ` → (${question.maxLabel})` : ""}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-4 shrink-0">
-                      <Button size="sm" variant="secondary" onClick={() => openEditModal(question)}>Editar</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDelete(question.id)} loading={deleting === question.id}>Eliminar</Button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={survey.questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+              <AnimatePresence>
+                {survey.questions.map((question, index) => (
+                  <SortableQuestion
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    onEdit={openEditModal}
+                    onDelete={handleDelete}
+                    deleting={deleting}
+                  />
+                ))}
+              </AnimatePresence>
+            </SortableContext>
+          </DndContext>
 
           {survey.questions.length === 0 && (
             <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center text-slate-500">

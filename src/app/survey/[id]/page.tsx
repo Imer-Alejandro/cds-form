@@ -52,11 +52,55 @@ export default function RespondSurveyPage() {
   const [direction, setDirection] = useState(1);
   const [wentBack, setWentBack] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const responseIdRef = useRef<string | null>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     fetchSurvey();
     return () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); };
   }, [surveyId]);
+
+  useEffect(() => {
+    if (!survey || submitted) return;
+
+    const storageKey = `survey_response_${surveyId}`;
+    const existingId = localStorage.getItem(storageKey);
+    responseIdRef.current = existingId;
+
+    if (!existingId) {
+      fetch("/api/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ surveyId, action: "start" }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.id) {
+            responseIdRef.current = data.id;
+            localStorage.setItem(storageKey, data.id);
+          }
+        })
+        .catch(() => {});
+    }
+
+    function sendAbandon() {
+      if (completedRef.current || !responseIdRef.current) return;
+      const payload = JSON.stringify({ surveyId, responseId: responseIdRef.current, action: "abandon" });
+      navigator.sendBeacon("/api/responses", new Blob([payload], { type: "application/json" }));
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") sendAbandon();
+    }
+
+    window.addEventListener("beforeunload", sendAbandon);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("beforeunload", sendAbandon);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [survey, submitted, surveyId]);
 
   async function fetchSurvey() {
     try {
@@ -111,7 +155,7 @@ export default function RespondSurveyPage() {
   function setAnswerAndAutoAdvance(questionId: string, value: any) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
     const q = survey!.questions.find((q) => q.id === questionId);
-    if (q && !["SHORT_TEXT", "LONG_TEXT", "EMAIL"].includes(q.type)) {
+    if (q && !["SHORT_TEXT", "LONG_TEXT", "EMAIL", "CHECKBOX", "SCALE"].includes(q.type)) {
       autoAdvance();
     }
   }
@@ -130,6 +174,7 @@ export default function RespondSurveyPage() {
 
     try {
       setSubmitting(true);
+      completedRef.current = true;
       const formattedAnswers = survey.questions.map((q) => ({
         questionId: q.id,
         value: answers[q.id] != null ? String(answers[q.id]) : null,
@@ -142,12 +187,18 @@ export default function RespondSurveyPage() {
       const response = await fetch("/api/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surveyId, answers: formattedAnswers }),
+        body: JSON.stringify({
+          surveyId,
+          responseId: responseIdRef.current,
+          answers: formattedAnswers,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to submit");
+      localStorage.removeItem(`survey_response_${surveyId}`);
       setSubmitted(true);
     } catch (error) {
+      completedRef.current = false;
       showToast("Error al enviar la respuesta", "error");
     } finally {
       setSubmitting(false);
@@ -210,6 +261,7 @@ export default function RespondSurveyPage() {
   const isLast = currentQuestionIndex === survey.questions.length - 1;
   const hasAnswer = answers[currentQuestion.id] != null && answers[currentQuestion.id] !== "" &&
     !(Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].length === 0);
+  const needsManualAdvance = currentQuestion.type === "CHECKBOX" || currentQuestion.type === "SCALE";
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50/40 py-8 px-6 flex items-center">
@@ -481,7 +533,7 @@ export default function RespondSurveyPage() {
               <Button onClick={handleSubmit} loading={submitting}>
                 Enviar ✓
               </Button>
-            ) : wentBack ? (
+            ) : needsManualAdvance || wentBack ? (
               <Button onClick={goNext} disabled={!hasAnswer && currentQuestion.required}>
                 Siguiente →
               </Button>

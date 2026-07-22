@@ -168,16 +168,25 @@ export async function PATCH(
       );
     }
 
-    const updates = orderedIds.map((questionId: string, index: number) =>
-      prisma.question.update({
-        where: { id: questionId },
-        data: { order: index + 1 },
-      })
+    const values = orderedIds.map((_: string, index: number) => index + 1);
+    const placeholders = orderedIds.map((_: string, index: number) => `$${index + 1}`);
+
+    await prisma.$transaction(
+      orderedIds.map((questionId: string, index: number) =>
+        prisma.$executeRawUnsafe(
+          `UPDATE "Question" SET "order" = $1 WHERE id = $2`,
+          index + 1,
+          questionId
+        )
+      )
     );
 
-    await prisma.$transaction(updates);
+    const reordered = await prisma.question.findMany({
+      where: { surveyId: id },
+      orderBy: { order: "asc" },
+    });
 
-    return NextResponse.json({ message: "Questions reordered" });
+    return NextResponse.json(reordered);
   } catch (error) {
     console.error("Error reordering questions:", error);
     return NextResponse.json(

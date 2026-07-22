@@ -337,6 +337,10 @@ export default function SurveyEditorPage() {
         body: JSON.stringify({ orderedIds: reordered.map((q) => q.id) }),
       });
       if (!response.ok) throw new Error("Failed to reorder");
+      const updatedQuestions = await response.json();
+      if (Array.isArray(updatedQuestions)) {
+        setSurvey((prev) => prev ? { ...prev, questions: updatedQuestions } : prev);
+      }
     } catch (error) {
       showToast("Error al reordenar", "error");
       await fetchSurvey();

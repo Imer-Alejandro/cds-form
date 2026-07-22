@@ -62,6 +62,9 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
 
 export function buildExecutiveSummaryEmail(data: {
   surveyTitle: string;
+  respondentName?: string | null;
+  respondentEmail?: string | null;
+  completedAt?: string;
   totalResponses: number;
   completedResponses: number;
   abandonedResponses: number;
@@ -80,6 +83,9 @@ export function buildExecutiveSummaryEmail(data: {
   const sentimentBg =
     data.sentimentScore >= 0.6 ? "#f0fdf4" : data.sentimentScore >= 0.4 ? "#fffbeb" : "#fef2f2";
   const npsDisplay = data.npsScore != null ? `${data.npsScore > 0 ? "+" : ""}${data.npsScore}` : "N/A";
+  const completedDate = data.completedAt ? new Date(data.completedAt) : new Date();
+  const dateStr = completedDate.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+  const timeStr = completedDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
   return `
 <!DOCTYPE html>
@@ -91,8 +97,34 @@ export function buildExecutiveSummaryEmail(data: {
       <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
 
         <tr><td style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:32px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">Resumen Ejecutivo</h1>
-          <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${data.surveyTitle}</p>
+          <p style="margin:0 0 6px;color:rgba(255,255,255,0.7);font-size:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Respuesta completada</p>
+          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">${data.surveyTitle}</h1>
+          <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Resumen ejecutivo de la encuesta</p>
+        </td></tr>
+
+        <tr><td style="padding:24px 40px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;">
+            <tr>
+              <td>
+                <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:500;margin-bottom:8px;">Detalle de la respuesta</div>
+                <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+                  ${data.respondentName || data.respondentEmail ? `
+                  <tr>
+                    <td style="padding:3px 0;color:#64748b;width:120px;">Respondio</td>
+                    <td style="padding:3px 0;color:#1e293b;font-weight:500;">${data.respondentName || "Anonimo"}${data.respondentEmail ? ` (${data.respondentEmail})` : ""}</td>
+                  </tr>` : ""}
+                  <tr>
+                    <td style="padding:3px 0;color:#64748b;">Fecha</td>
+                    <td style="padding:3px 0;color:#1e293b;font-weight:500;">${dateStr} a las ${timeStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:3px 0;color:#64748b;">Estado</td>
+                    <td style="padding:3px 0;"><span style="display:inline-block;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;">Completada</span></td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </td></tr>
 
         <tr><td style="padding:32px 40px;">

@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       try {
         const html = buildExecutiveSummaryEmail({
           surveyTitle: survey.title,
+          completedAt: new Date().toISOString(),
           totalResponses,
           completedResponses,
           abandonedResponses,

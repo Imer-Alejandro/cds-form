@@ -148,11 +148,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(response, { status: 201 });
-
     triggerCompletionEmails(surveyId).catch((err) =>
       console.error("Failed to send completion emails:", err)
     );
+
+    return NextResponse.json(response, { status: 201 });
   } catch (error) {
     console.error("Error submitting response:", error);
     return NextResponse.json(
@@ -228,7 +228,10 @@ async function triggerCompletionEmails(surveyId: string) {
   const responses = await prisma.response.findMany({
     where: { surveyId, status: "COMPLETED" },
     include: { answers: true },
+    orderBy: { completedAt: "desc" },
   });
+
+  const latestResponse = responses[0];
 
   const totalResponses = responses.length;
   const completedResponses = survey.metadata?.completedResponses ?? totalResponses;
@@ -339,6 +342,9 @@ async function triggerCompletionEmails(surveyId: string) {
     try {
       const html = buildExecutiveSummaryEmail({
         surveyTitle: survey.title,
+        respondentName: latestResponse?.respondentName || null,
+        respondentEmail: latestResponse?.respondentEmail || null,
+        completedAt: latestResponse?.completedAt?.toISOString() || new Date().toISOString(),
         totalResponses,
         completedResponses,
         abandonedResponses,

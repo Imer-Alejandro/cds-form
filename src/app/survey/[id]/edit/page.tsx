@@ -45,6 +45,7 @@ interface Survey {
   status: string;
   isPublished: boolean;
   questions: Question[];
+  departmentConfigs?: any[];
 }
 
 const questionTypes = [
@@ -174,6 +175,10 @@ export default function SurveyEditorPage() {
   const [form, setForm] = useState(emptyQuestion);
   const [newOption, setNewOption] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [deptForm, setDeptForm] = useState({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" });
+  const [editingDept, setEditingDept] = useState<any>(null);
+  const [savingDept, setSavingDept] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -205,6 +210,61 @@ export default function SurveyEditorPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSaveDept() {
+    if (!deptForm.department.trim() || !deptForm.responsibleEmail.trim()) {
+      showToast("Departamento y email son requeridos", "error");
+      return;
+    }
+    setSavingDept(true);
+    try {
+      const body: Record<string, any> = { ...deptForm };
+      if (editingDept) body.configId = editingDept.id;
+
+      const res = await fetch(`/api/surveys/${surveyId}/department-config`, {
+        method: editingDept ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed");
+      }
+      showToast(editingDept ? "Departamento actualizado" : "Departamento agregado", "success");
+      setShowDeptModal(false);
+      setEditingDept(null);
+      setDeptForm({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" });
+      await fetchSurvey();
+    } catch (error: any) {
+      showToast(error.message || "Error al guardar", "error");
+    } finally {
+      setSavingDept(false);
+    }
+  }
+
+  async function handleDeleteDept(configId: string) {
+    if (!confirm("Eliminar este departamento?")) return;
+    try {
+      const res = await fetch(`/api/surveys/${surveyId}/department-config?configId=${configId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      showToast("Departamento eliminado", "success");
+      await fetchSurvey();
+    } catch {
+      showToast("Error al eliminar", "error");
+    }
+  }
+
+  function openEditDept(config: any) {
+    setEditingDept(config);
+    setDeptForm({
+      department: config.department,
+      responsibleEmail: config.responsible?.email || "",
+      sendSummary: config.sendSummary,
+      sendOnCompletion: config.sendOnCompletion,
+      summaryFrequency: config.summaryFrequency,
+    });
+    setShowDeptModal(true);
   }
 
   function openAddModal() {
@@ -451,6 +511,55 @@ export default function SurveyEditorPage() {
             + Agregar Pregunta
           </motion.button>
         </motion.div>
+
+        {/* Department / Responsible Section */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Departamentos y Responsables</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Configura quien recibe notificaciones cuando se completen respuestas</p>
+            </div>
+            <button
+              onClick={() => { setEditingDept(null); setDeptForm({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" }); setShowDeptModal(true); }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+            >
+              + Agregar
+            </button>
+          </div>
+
+          {survey.departmentConfigs && survey.departmentConfigs.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {survey.departmentConfigs.map((config: any) => (
+                <div key={config.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div>
+                    <div className="font-medium text-slate-900">{config.department}</div>
+                    <div className="text-sm text-slate-500">{config.responsible?.email || "Sin asignar"}</div>
+                    <div className="flex gap-2 mt-1">
+                      {config.sendOnCompletion && (
+                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Notificacion al completar</span>
+                      )}
+                      {config.sendSummary && (
+                        <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">Resumen: {config.summaryFrequency}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEditDept(config)} className="text-slate-400 hover:text-blue-600 transition p-1" title="Editar">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                    </button>
+                    <button onClick={() => handleDeleteDept(config.id)} className="text-slate-400 hover:text-red-600 transition p-1" title="Eliminar">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-400 text-sm">
+              Sin departamentos configurados. Los correos de notificacion se enviaron cuando configures un responsable.
+            </div>
+          )}
+        </motion.div>
       </div>
 
       {/* Question Modal */}
@@ -595,6 +704,77 @@ export default function SurveyEditorPage() {
             <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>Cancelar</Button>
             <Button fullWidth onClick={handleSave}>
               {editingQuestion ? "Guardar Cambios" : "Agregar Pregunta"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Department Modal */}
+      <Modal isOpen={showDeptModal} onClose={() => { setShowDeptModal(false); setEditingDept(null); }} title={editingDept ? "Editar Departamento" : "Agregar Departamento"}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-900">Departamento *</label>
+            <input
+              type="text"
+              value={deptForm.department}
+              onChange={(e) => setDeptForm({ ...deptForm, department: e.target.value })}
+              placeholder="Ej: Recursos Humanos"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-900">Email del Responsable *</label>
+            <input
+              type="email"
+              value={deptForm.responsibleEmail}
+              onChange={(e) => setDeptForm({ ...deptForm, responsibleEmail: e.target.value })}
+              placeholder="responsable@empresa.com"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="sendOnCompletion"
+                checked={deptForm.sendOnCompletion}
+                onChange={(e) => setDeptForm({ ...deptForm, sendOnCompletion: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="sendOnCompletion" className="text-sm text-slate-700">Enviar resumen ejecutivo al completar cada respuesta</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="sendSummary"
+                checked={deptForm.sendSummary}
+                onChange={(e) => setDeptForm({ ...deptForm, sendSummary: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="sendSummary" className="text-sm text-slate-700">Enviar reporte periodico</label>
+            </div>
+            {deptForm.sendSummary && (
+              <div className="ml-7">
+                <label className="block text-xs font-medium text-slate-500 mb-1">Frecuencia</label>
+                <select
+                  value={deptForm.summaryFrequency}
+                  onChange={(e) => setDeptForm({ ...deptForm, summaryFrequency: e.target.value })}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="IMMEDIATELY">Inmediato</option>
+                  <option value="DAILY">Diario</option>
+                  <option value="WEEKLY">Semanal</option>
+                  <option value="MONTHLY">Mensual</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-2 border-t border-slate-200">
+            <Button variant="secondary" fullWidth onClick={() => { setShowDeptModal(false); setEditingDept(null); }}>Cancelar</Button>
+            <Button fullWidth onClick={handleSaveDept} loading={savingDept}>
+              {editingDept ? "Guardar Cambios" : "Agregar Departamento"}
             </Button>
           </div>
         </div>

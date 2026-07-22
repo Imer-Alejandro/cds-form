@@ -249,3 +249,17 @@ enum EmailStatus {
   FAILED
   BOUNCED
 }
+
+model SMTPConfig {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  host        String
+  port        Int      @default(587)
+  user        String
+  password    String
+  fromName    String   @default("SDC Form")
+  fromEmail   String
+  secure      Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

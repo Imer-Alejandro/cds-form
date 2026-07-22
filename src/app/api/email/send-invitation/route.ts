@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, sendSurveySummary } from "@/lib/email";
+import { sendEmail } from "@/lib/email";
 
 // POST /api/email/send-invitation - Send survey invitations
 export async function POST(request: NextRequest) {

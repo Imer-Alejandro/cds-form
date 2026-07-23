@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { LoadingSpinner } from "@/components/Loading";
@@ -30,13 +30,29 @@ interface Survey {
   randomizeQuestions: boolean;
 }
 
-const AUTO_ADVANCE_MS = 1200;
+const AUTO_ADVANCE_MS = 600;
 
 const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
+  enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0, scale: 0.98 }),
+  center: { x: 0, opacity: 1, scale: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0, scale: 0.98 }),
 };
+
+function SkeletonQuestion() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="text-center space-y-3">
+        <div className="h-7 bg-slate-200 rounded-lg mx-auto w-3/4" />
+        <div className="h-4 bg-slate-100 rounded mx-auto w-1/2" />
+      </div>
+      <div className="space-y-3 max-w-md mx-auto">
+        <div className="h-12 bg-slate-100 rounded-xl" />
+        <div className="h-12 bg-slate-100 rounded-xl" />
+        <div className="h-12 bg-slate-100 rounded-xl" />
+      </div>
+    </div>
+  );
+}
 
 export default function RespondSurveyPage() {
   const params = useParams();
@@ -51,6 +67,7 @@ export default function RespondSurveyPage() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [direction, setDirection] = useState(1);
   const [wentBack, setWentBack] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const responseIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
@@ -141,15 +158,31 @@ export default function RespondSurveyPage() {
   }
 
   function goNext() {
-    if (!survey) return;
+    if (!survey || transitioning) return;
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    setTransitioning(true);
     setDirection(1);
-    setCurrentQuestionIndex((i) => Math.min(survey.questions.length - 1, i + 1));
+    setTimeout(() => {
+      setCurrentQuestionIndex((i) => Math.min(survey.questions.length - 1, i + 1));
+      setTransitioning(false);
+    }, 50);
   }
 
   function goPrev() {
+    if (!survey || transitioning) return;
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    setTransitioning(true);
     setDirection(-1);
     setWentBack(true);
-    setCurrentQuestionIndex((i) => Math.max(0, i - 1));
+    setTimeout(() => {
+      setCurrentQuestionIndex((i) => Math.max(0, i - 1));
+      setTransitioning(false);
+    }, 50);
+  }
+
+  function skipQuestion() {
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    goNext();
   }
 
   function setAnswerAndAutoAdvance(questionId: string, value: any) {
@@ -212,7 +245,7 @@ export default function RespondSurveyPage() {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50/40 flex items-center justify-center px-6">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
           className="text-center max-w-md"
@@ -221,9 +254,9 @@ export default function RespondSurveyPage() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.2 }}
-            className="mx-auto mb-8 h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25"
+            className="mx-auto mb-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25"
           >
-            <svg className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           </motion.div>
@@ -233,7 +266,7 @@ export default function RespondSurveyPage() {
             transition={{ delay: 0.4 }}
             className="text-3xl font-bold text-slate-900"
           >
-            ¡Gracias por participar!
+            Gracias por participar
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -261,7 +294,8 @@ export default function RespondSurveyPage() {
   const isLast = currentQuestionIndex === survey.questions.length - 1;
   const hasAnswer = answers[currentQuestion.id] != null && answers[currentQuestion.id] !== "" &&
     !(Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].length === 0);
-  const needsManualAdvance = currentQuestion.type === "CHECKBOX" || currentQuestion.type === "SCALE";
+  const needsManualAdvance = currentQuestion.type === "CHECKBOX" || currentQuestion.type === "SCALE" || currentQuestion.type === "SHORT_TEXT" || currentQuestion.type === "LONG_TEXT" || currentQuestion.type === "EMAIL";
+  const canSkip = !currentQuestion.required;
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50/40 py-8 px-6 flex items-center">
@@ -269,9 +303,9 @@ export default function RespondSurveyPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5"
+          className="rounded-2xl bg-white p-8 md:p-10 shadow-xl ring-1 ring-slate-900/5"
         >
-          {/* Header - only on first question */}
+          {/* Header */}
           <AnimatePresence>
             {currentQuestionIndex === 0 && (
               <motion.div
@@ -282,7 +316,7 @@ export default function RespondSurveyPage() {
               >
                 <h1 className="text-3xl font-bold text-slate-900">{survey.title}</h1>
                 {survey.description && (
-                  <p className="mt-3 text-slate-500">{survey.description}</p>
+                  <p className="mt-3 text-slate-500 text-lg">{survey.description}</p>
                 )}
               </motion.div>
             )}
@@ -292,25 +326,25 @@ export default function RespondSurveyPage() {
           {survey.showProgressBar && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-500">
-                  {currentQuestionIndex + 1} / {survey.questions.length}
+                <span className="text-sm font-medium text-slate-400">
+                  {currentQuestionIndex + 1} de {survey.questions.length}
                 </span>
                 <span className="text-sm font-semibold text-blue-600">
                   {progress.toFixed(0)}%
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <motion.div
                   className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
                   animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
                 />
               </div>
             </div>
           )}
 
           {/* Question */}
-          <div className="mb-8" style={{ minHeight: 220 }}>
+          <div className="mb-8" style={{ minHeight: 240 }}>
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentQuestion.id}
@@ -319,58 +353,62 @@ export default function RespondSurveyPage() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="space-y-6"
               >
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-slate-900 leading-snug">
                     {currentQuestion.title}
                   </h2>
                   {currentQuestion.description && (
                     <p className="mt-2 text-slate-500">{currentQuestion.description}</p>
                   )}
                   {currentQuestion.required && (
-                    <p className="mt-2 text-xs font-medium text-red-500 uppercase tracking-wide">* Requerida</p>
+                    <p className="mt-2 text-xs font-medium text-red-400 tracking-wide">Requerida</p>
                   )}
                 </div>
 
                 <div className="space-y-3">
                   {currentQuestion.type === "SHORT_TEXT" && (
-                    <input
-                      type="text"
-                      value={answers[currentQuestion.id] || ""}
-                      onChange={(e) =>
-                        setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
-                      }
-                      onKeyDown={(e) => { if (e.key === "Enter" && hasAnswer) goNext(); }}
-                      placeholder="Tu respuesta..."
-                      autoFocus
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                    />
+                    <div className="max-w-md mx-auto">
+                      <input
+                        type="text"
+                        value={answers[currentQuestion.id] || ""}
+                        onChange={(e) =>
+                          setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
+                        }
+                        onKeyDown={(e) => { if (e.key === "Enter") goNext(); }}
+                        placeholder="Tu respuesta..."
+                        autoFocus
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                      />
+                    </div>
                   )}
 
                   {currentQuestion.type === "LONG_TEXT" && (
-                    <textarea
-                      value={answers[currentQuestion.id] || ""}
-                      onChange={(e) =>
-                        setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
-                      }
-                      placeholder="Tu respuesta..."
-                      rows={4}
-                      autoFocus
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 resize-none"
-                    />
+                    <div className="max-w-md mx-auto">
+                      <textarea
+                        value={answers[currentQuestion.id] || ""}
+                        onChange={(e) =>
+                          setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
+                        }
+                        placeholder="Tu respuesta..."
+                        rows={4}
+                        autoFocus
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 resize-none"
+                      />
+                    </div>
                   )}
 
                   {currentQuestion.type === "MULTIPLE_CHOICE" && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-w-md mx-auto">
                       {currentQuestion.options?.map((option) => {
                         const selected = answers[currentQuestion.id] === option;
                         return (
                           <button
                             key={option}
                             onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, option)}
-                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 ${
                               selected
                                 ? "border-blue-500 bg-blue-50 ring-4 ring-blue-500/10"
                                 : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
@@ -389,7 +427,7 @@ export default function RespondSurveyPage() {
                   )}
 
                   {currentQuestion.type === "CHECKBOX" && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-w-md mx-auto">
                       {currentQuestion.options?.map((option) => {
                         const selected: string[] = answers[currentQuestion.id] || [];
                         const isChecked = selected.includes(option);
@@ -402,7 +440,7 @@ export default function RespondSurveyPage() {
                                 : [...selected, option];
                               setAnswers({ ...answers, [currentQuestion.id]: next });
                             }}
-                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 ${
                               isChecked
                                 ? "border-blue-500 bg-blue-50 ring-4 ring-blue-500/10"
                                 : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
@@ -425,35 +463,39 @@ export default function RespondSurveyPage() {
                   )}
 
                   {currentQuestion.type === "DATE" && (
-                    <input
-                      type="date"
-                      value={answers[currentQuestion.id] || ""}
-                      onChange={(e) => setAnswerAndAutoAdvance(currentQuestion.id, e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                    />
+                    <div className="max-w-md mx-auto">
+                      <input
+                        type="date"
+                        value={answers[currentQuestion.id] || ""}
+                        onChange={(e) => setAnswerAndAutoAdvance(currentQuestion.id, e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-slate-900 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                      />
+                    </div>
                   )}
 
                   {currentQuestion.type === "EMAIL" && (
-                    <input
-                      type="email"
-                      value={answers[currentQuestion.id] || ""}
-                      onChange={(e) =>
-                        setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
-                      }
-                      onKeyDown={(e) => { if (e.key === "Enter" && hasAnswer) goNext(); }}
-                      placeholder="tu@email.com"
-                      autoFocus
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                    />
+                    <div className="max-w-md mx-auto">
+                      <input
+                        type="email"
+                        value={answers[currentQuestion.id] || ""}
+                        onChange={(e) =>
+                          setAnswers({ ...answers, [currentQuestion.id]: e.target.value })
+                        }
+                        onKeyDown={(e) => { if (e.key === "Enter") goNext(); }}
+                        placeholder="tu@email.com"
+                        autoFocus
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                      />
+                    </div>
                   )}
 
                   {currentQuestion.type === "RATING" && (
-                    <div className="flex items-center gap-2 justify-center py-4">
+                    <div className="flex items-center gap-3 justify-center py-4">
                       {Array.from({ length: currentQuestion.maxValue || 5 }).map((_, i) => (
                         <button
                           key={i}
                           onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, i + 1)}
-                          className={`text-4xl transition-all duration-150 ${
+                          className={`text-4xl transition-all duration-100 ${
                             answers[currentQuestion.id] === i + 1
                               ? "text-amber-400 scale-125 drop-shadow-md"
                               : "text-slate-200 hover:text-amber-200 hover:scale-110"
@@ -466,7 +508,7 @@ export default function RespondSurveyPage() {
                   )}
 
                   {currentQuestion.type === "NET_PROMOTER_SCORE" && (
-                    <div className="space-y-2">
+                    <div className="space-y-3 max-w-lg mx-auto">
                       <div className="flex justify-between text-xs font-medium text-slate-400 px-1">
                         <span>Nada probable</span>
                         <span>Muy probable</span>
@@ -476,7 +518,7 @@ export default function RespondSurveyPage() {
                           <button
                             key={i}
                             onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, i)}
-                            className={`aspect-square rounded-lg text-sm font-semibold transition-all duration-150 ${
+                            className={`aspect-square rounded-lg text-sm font-semibold transition-all duration-100 ${
                               answers[currentQuestion.id] === i
                                 ? i <= 6
                                   ? "bg-red-500 text-white shadow-md shadow-red-500/25"
@@ -494,7 +536,7 @@ export default function RespondSurveyPage() {
                   )}
 
                   {currentQuestion.type === "SCALE" && (
-                    <div className="space-y-4 py-2">
+                    <div className="space-y-4 py-2 max-w-md mx-auto">
                       <div className="flex items-center justify-between text-sm font-medium text-slate-500">
                         <span>{currentQuestion.minLabel || currentQuestion.minValue || 0}</span>
                         <span>{currentQuestion.maxLabel || currentQuestion.maxValue || 10}</span>
@@ -509,7 +551,7 @@ export default function RespondSurveyPage() {
                         }
                         className="w-full h-2 rounded-full appearance-none bg-slate-200 accent-blue-600 cursor-pointer"
                       />
-                      <div className="text-center text-2xl font-bold text-blue-600">
+                      <div className="text-center text-3xl font-bold text-blue-600">
                         {answers[currentQuestion.id] ?? Math.round(((currentQuestion.minValue || 0) + (currentQuestion.maxValue || 10)) / 2)}
                       </div>
                     </div>
@@ -526,18 +568,27 @@ export default function RespondSurveyPage() {
               onClick={goPrev}
               disabled={currentQuestionIndex === 0}
             >
-              ← Atrás
+              Atras
             </Button>
             <div className="flex-1" />
             {isLast ? (
               <Button onClick={handleSubmit} loading={submitting}>
-                Enviar ✓
+                Enviar
               </Button>
-            ) : needsManualAdvance || wentBack ? (
-              <Button onClick={goNext} disabled={!hasAnswer && currentQuestion.required}>
-                Siguiente →
-              </Button>
-            ) : null}
+            ) : (
+              <div className="flex gap-2">
+                {canSkip && (
+                  <Button variant="secondary" onClick={skipQuestion}>
+                    Saltar
+                  </Button>
+                )}
+                {(needsManualAdvance || wentBack) && (
+                  <Button onClick={goNext} disabled={!hasAnswer && currentQuestion.required}>
+                    Siguiente
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

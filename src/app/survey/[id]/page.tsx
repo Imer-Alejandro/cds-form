@@ -298,12 +298,12 @@ export default function RespondSurveyPage() {
   const canSkip = !currentQuestion.required;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50/40 py-8 px-6 flex items-center">
+    <main className="min-h-screen bg-[#f5f5f5] py-8 px-6 flex items-center">
       <div className="mx-auto w-full max-w-2xl">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl bg-white p-8 md:p-10 shadow-xl ring-1 ring-slate-900/5"
+          className="rounded-xl bg-white p-8 md:p-10 shadow-sm border border-slate-200"
         >
           {/* Header */}
           <AnimatePresence>
@@ -314,9 +314,9 @@ export default function RespondSurveyPage() {
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-8 text-center overflow-hidden"
               >
-                <h1 className="text-3xl font-bold text-slate-900">{survey.title}</h1>
+                <h1 className="text-2xl font-bold text-slate-900">{survey.title}</h1>
                 {survey.description && (
-                  <p className="mt-3 text-slate-500 text-lg">{survey.description}</p>
+                  <p className="mt-2 text-slate-600 text-base">{survey.description}</p>
                 )}
               </motion.div>
             )}
@@ -326,16 +326,16 @@ export default function RespondSurveyPage() {
           {survey.showProgressBar && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-400">
-                  {currentQuestionIndex + 1} de {survey.questions.length}
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Pregunta {currentQuestionIndex + 1} de {survey.questions.length}
                 </span>
-                <span className="text-sm font-semibold text-blue-600">
+                <span className="text-xs font-bold text-[#0d7377]">
                   {progress.toFixed(0)}%
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                  className="h-full rounded-full bg-[#0d7377]"
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 />
@@ -408,18 +408,18 @@ export default function RespondSurveyPage() {
                           <button
                             key={option}
                             onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, option)}
-                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 ${
+                            className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all duration-150 ${
                               selected
-                                ? "border-blue-500 bg-blue-50 ring-4 ring-blue-500/10"
+                                ? "border-[#0d7377] bg-teal-50/50 ring-2 ring-[#0d7377]/20"
                                 : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                             }`}
                           >
                             <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
-                              selected ? "border-blue-500 bg-blue-500" : "border-slate-300"
+                              selected ? "border-[#0d7377] bg-[#0d7377]" : "border-slate-300"
                             }`}>
                               {selected && <span className="h-2 w-2 rounded-full bg-white" />}
                             </span>
-                            <span className={`font-medium ${selected ? "text-blue-700" : "text-slate-700"}`}>{option}</span>
+                            <span className={`font-medium ${selected ? "text-[#0d7377]" : "text-slate-700"}`}>{option}</span>
                           </button>
                         );
                       })}
@@ -440,14 +440,14 @@ export default function RespondSurveyPage() {
                                 : [...selected, option];
                               setAnswers({ ...answers, [currentQuestion.id]: next });
                             }}
-                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 ${
+                            className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all duration-150 ${
                               isChecked
-                                ? "border-blue-500 bg-blue-50 ring-4 ring-blue-500/10"
+                                ? "border-[#0d7377] bg-teal-50/50 ring-2 ring-[#0d7377]/20"
                                 : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                             }`}
                           >
                             <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition ${
-                              isChecked ? "border-blue-500 bg-blue-500" : "border-slate-300"
+                              isChecked ? "border-[#0d7377] bg-[#0d7377]" : "border-slate-300"
                             }`}>
                               {isChecked && (
                                 <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
@@ -455,7 +455,7 @@ export default function RespondSurveyPage() {
                                 </svg>
                               )}
                             </span>
-                            <span className={`font-medium ${isChecked ? "text-blue-700" : "text-slate-700"}`}>{option}</span>
+                            <span className={`font-medium ${isChecked ? "text-[#0d7377]" : "text-slate-700"}`}>{option}</span>
                           </button>
                         );
                       })}

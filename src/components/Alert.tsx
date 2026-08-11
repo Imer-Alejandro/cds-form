@@ -12,17 +12,17 @@ interface AlertProps {
 
 export function Alert({ type = "info", title, message, onClose }: AlertProps) {
   const colors = {
-    success: "bg-green-50 border-green-200 text-green-900",
+    success: "bg-emerald-50 border-emerald-200 text-emerald-900",
     error: "bg-red-50 border-red-200 text-red-900",
-    warning: "bg-yellow-50 border-yellow-200 text-yellow-900",
-    info: "bg-blue-50 border-blue-200 text-blue-900",
+    warning: "bg-amber-50 border-amber-200 text-amber-900",
+    info: "bg-teal-50 border-teal-200 text-teal-900",
   };
 
   const iconColors = {
-    success: "text-green-600",
+    success: "text-emerald-600",
     error: "text-red-600",
-    warning: "text-yellow-600",
-    info: "text-blue-600",
+    warning: "text-amber-600",
+    info: "text-[#0d7377]",
   };
 
   const icons = {

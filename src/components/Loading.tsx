@@ -17,7 +17,7 @@ export function LoadingSpinner({ size = "md", text }: LoadingSpinnerProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-4">
       <div
-        className={`${sizeClasses[size]} animate-spin rounded-full border-4 border-slate-200 border-t-blue-500`}
+        className={`${sizeClasses[size]} animate-spin rounded-full border-4 border-slate-200 border-t-[#0d7377]`}
       />
       {text && <p className="text-slate-600">{text}</p>}
     </div>

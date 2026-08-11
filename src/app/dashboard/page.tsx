@@ -77,7 +77,7 @@ function AnimatedCounter({ value, suffix = "" }: { value: number | string; suffi
   const target = typeof value === "string" ? parseFloat(value) : value;
 
   useEffect(() => {
-    if (isNaN(target)) { setDisplay(0); return; }
+    if (isNaN(target)) { requestAnimationFrame(() => setDisplay(0)); return; }
     const duration = 900;
     const startTime = performance.now();
     function tick(now: number) {
@@ -186,8 +186,8 @@ export default function Dashboard() {
 
   return (
     <>
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-6 sm:px-8 lg:px-12">
-      <div className="mx-auto max-w-7xl space-y-8">
+    <main className="min-h-screen bg-[#f5f5f5] py-8 px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -195,12 +195,12 @@ export default function Dashboard() {
           className="flex items-center justify-between"
         >
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
             <p className="mt-1 text-sm text-slate-500">Resumen general de tus encuestas</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/survey/new">
-              <Button>+ Nueva Encuesta</Button>
+              <Button variant="primary">+ Nueva Encuesta</Button>
             </Link>
           </div>
         </motion.div>
@@ -208,25 +208,20 @@ export default function Dashboard() {
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Encuestas", value: stats.totalSurveys, accent: "from-blue-500 to-indigo-600", ring: "ring-blue-500/20", iconBg: "bg-blue-500/10" },
-            { label: "Publicadas", value: stats.activeSurveys, accent: "from-emerald-400 to-teal-500", ring: "ring-emerald-500/20", iconBg: "bg-emerald-500/10" },
-            { label: "Respuestas", value: stats.totalResponses, accent: "from-violet-500 to-purple-600", ring: "ring-violet-500/20", iconBg: "bg-violet-500/10" },
-            { label: "Finalización", value: stats.avgCompletion, suffix: "%", accent: "from-amber-400 to-orange-500", ring: "ring-amber-500/20", iconBg: "bg-amber-500/10" },
+            { label: "Encuestas", value: stats.totalSurveys, border: "border-l-4 border-l-[#0d7377]" },
+            { label: "Publicadas", value: stats.activeSurveys, border: "border-l-4 border-l-emerald-500" },
+            { label: "Respuestas", value: stats.totalResponses, border: "border-l-4 border-l-[#e8722a]" },
+            { label: "Finalización", value: stats.avgCompletion, suffix: "%", border: "border-l-4 border-l-amber-500" },
           ].map((stat, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 16, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: i * 0.08, type: "spring", stiffness: 200 }}
-              className={`relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ${stat.ring} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={`relative overflow-hidden rounded-xl bg-white p-5 shadow-sm border border-slate-200 ${stat.border}`}
             >
-              <div className={`absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${stat.accent} opacity-[0.08] blur-sm`} />
-              <div className={`absolute -right-2 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br ${stat.accent} opacity-[0.05]`} />
-              <div className={`inline-flex rounded-lg ${stat.iconBg} p-2 mb-3`}>
-                <div className={`h-2 w-8 rounded-full bg-gradient-to-r ${stat.accent}`} />
-              </div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{stat.label}</p>
-              <p className="mt-1 text-3xl font-extrabold text-slate-900 tabular-nums">
+              <p className="mt-2 text-3xl font-extrabold text-slate-900 tabular-nums">
                 <AnimatedCounter value={stat.value} suffix={stat.suffix} />
               </p>
             </motion.div>
@@ -558,29 +553,31 @@ export default function Dashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ delay: i * 0.04 }}
-                  className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-teal-300 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-slate-900 truncate">{survey.title}</h3>
-                        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                          survey.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <h3 className="font-bold text-slate-900 truncate text-base">{survey.title}</h3>
+                        <span className={`shrink-0 inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-[11px] font-semibold ${
+                          survey.isPublished ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600 border border-slate-200"
                         }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${survey.isPublished ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                          <span className={`h-1.5 w-1.5 rounded-full ${survey.isPublished ? "bg-emerald-500" : "bg-slate-400"}`} />
                           {survey.isPublished ? "Activa" : "Borrador"}
                         </span>
                       </div>
                       {survey.description && (
-                        <p className="text-sm text-slate-500 truncate">{survey.description}</p>
+                        <p className="text-sm text-slate-500 truncate mb-2">{survey.description}</p>
                       )}
-                      <div className="mt-2 flex gap-4 text-xs text-slate-400">
-                        <span className="flex items-center gap-1">📝 {survey._count.questions} preguntas</span>
-                        <span className="flex items-center gap-1">💬 {survey.metadata?.totalResponses ?? 0} respuestas</span>
-                        <span className="flex items-center gap-1">✓ {(survey.metadata?.completionRate ?? 0).toFixed(0)}% finalización</span>
+                      <div className="mt-2 flex gap-4 text-xs font-medium text-slate-500">
+                        <span>{survey._count.questions} preguntas</span>
+                        <span>•</span>
+                        <span>{survey.metadata?.totalResponses ?? 0} respuestas</span>
+                        <span>•</span>
+                        <span>{(survey.metadata?.completionRate ?? 0).toFixed(0)}% finalización</span>
                       </div>
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
+                    <div className="flex gap-2 shrink-0">
                       <Link href={`/survey/${survey.id}/edit`}>
                         <Button size="sm" variant="secondary">Editar</Button>
                       </Link>
@@ -588,7 +585,7 @@ export default function Dashboard() {
                         <Button size="sm" variant="secondary">Compartir</Button>
                       </Link>
                       <Link href={`/survey/${survey.id}/results`}>
-                        <Button size="sm" variant="secondary">Resultados</Button>
+                        <Button size="sm" variant="primary">Resultados</Button>
                       </Link>
                     </div>
                   </div>

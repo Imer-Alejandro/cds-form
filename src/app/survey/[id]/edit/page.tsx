@@ -49,15 +49,15 @@ interface Survey {
 }
 
 const questionTypes = [
-  { value: "SHORT_TEXT", label: "Texto Corto", icon: "📝", hasOptions: false },
-  { value: "LONG_TEXT", label: "Texto Largo", icon: "📄", hasOptions: false },
-  { value: "MULTIPLE_CHOICE", label: "Opción Múltiple", icon: "⭕", hasOptions: true },
-  { value: "CHECKBOX", label: "Casillas", icon: "☑️", hasOptions: true },
-  { value: "RATING", label: "Calificación", icon: "⭐", hasOptions: false },
-  { value: "SCALE", label: "Escala", icon: "📊", hasOptions: false },
-  { value: "DATE", label: "Fecha", icon: "📅", hasOptions: false },
-  { value: "EMAIL", label: "Email", icon: "📧", hasOptions: false },
-  { value: "NET_PROMOTER_SCORE", label: "NPS", icon: "💯", hasOptions: false },
+  { value: "SHORT_TEXT", label: "Texto Corto", icon: "TEXT", hasOptions: false },
+  { value: "LONG_TEXT", label: "Texto Largo", icon: "DOC", hasOptions: false },
+  { value: "MULTIPLE_CHOICE", label: "Opción Múltiple", icon: "CHOICE", hasOptions: true },
+  { value: "CHECKBOX", label: "Casillas", icon: "CHECK", hasOptions: true },
+  { value: "RATING", label: "Calificación", icon: "STAR", hasOptions: false },
+  { value: "SCALE", label: "Escala", icon: "SCALE", hasOptions: false },
+  { value: "DATE", label: "Fecha", icon: "DATE", hasOptions: false },
+  { value: "EMAIL", label: "Email", icon: "MAIL", hasOptions: false },
+  { value: "NET_PROMOTER_SCORE", label: "NPS", icon: "NPS", hasOptions: false },
 ];
 
 const emptyQuestion = {
@@ -112,8 +112,8 @@ function SortableQuestion({
       ref={setNodeRef}
       style={style}
       layout
-      className={`rounded-lg border bg-white p-6 transition shadow-sm ${
-        isDragging ? "border-blue-400 shadow-lg ring-2 ring-blue-500/20" : "border-slate-200 hover:shadow-md"
+      className={`rounded-xl border bg-white p-5 transition shadow-sm ${
+        isDragging ? "border-[#0d7377] shadow-md ring-2 ring-[#0d7377]/20" : "border-slate-200 hover:border-slate-300"
       }`}
     >
       <div className="flex items-start justify-between">
@@ -124,27 +124,27 @@ function SortableQuestion({
             className="mt-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition shrink-0 touch-none"
             title="Arrastrar para reordenar"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
               <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
               <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
             </svg>
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{typeInfo?.icon}</span>
-              <h3 className="text-lg font-semibold text-slate-900 truncate">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider bg-teal-50 text-[#0d7377] px-2 py-0.5 rounded border border-teal-100">{typeInfo?.icon}</span>
+              <h3 className="text-base font-bold text-slate-900 truncate">
                 {index + 1}. {question.title}
               </h3>
               {question.required && (
-                <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded whitespace-nowrap">Requerida</span>
+                <span className="text-[11px] font-semibold bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded whitespace-nowrap">Requerida</span>
               )}
             </div>
             {question.description && (
-              <p className="mt-2 text-sm text-slate-600">{question.description}</p>
+              <p className="mt-1.5 text-sm text-slate-500">{question.description}</p>
             )}
-            <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-500">
-              <span className="bg-slate-100 px-2 py-0.5 rounded">{typeInfo?.label}</span>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+              <span className="bg-slate-100 px-2 py-0.5 rounded font-medium">{typeInfo?.label}</span>
               {opts.length > 0 && (
                 <span className="text-slate-400">· {opts.length} opciones: {opts.slice(0, 3).join(", ")}{opts.length > 3 ? "..." : ""}</span>
               )}

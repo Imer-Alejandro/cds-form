@@ -19,12 +19,12 @@ export function Button({
 }: ButtonProps) {
   const variantClasses = {
     primary:
-      "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400",
+      "bg-[#0d7377] text-white hover:bg-[#0a5c5f] disabled:bg-slate-300 shadow-sm",
     secondary:
-      "bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:bg-slate-100",
-    danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400",
+      "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:bg-slate-100 shadow-sm",
+    danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 shadow-sm",
     success:
-      "bg-green-600 text-white hover:bg-green-700 disabled:bg-green-400",
+      "bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-emerald-300 shadow-sm",
   };
 
   const sizeClasses = {

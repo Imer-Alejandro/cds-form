@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 
     // Average satisfaction per survey (from RATING questions)
     const satisfactionBySurvey = surveys.map((s: any) => {
-      const ratingQuestions = s.questions.filter((q) => q.type === "RATING");
-      const ratingQuestionIds = new Set(ratingQuestions.map((q) => q.id));
+      const ratingQuestions = s.questions.filter((q: any) => q.type === "RATING");
+      const ratingQuestionIds = new Set(ratingQuestions.map((q: any) => q.id));
 
       let totalRating = 0;
       let ratingCount = 0;
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         title: s.title.substring(0, 20),
         avgRating: ratingCount > 0 ? Math.round((totalRating / ratingCount) * 10) / 10 : 0,
         totalResponses: s.responses.length,
-        completedResponses: s.responses.filter((r) => r.status === "COMPLETED").length,
+        completedResponses: s.responses.filter((r: any) => r.status === "COMPLETED").length,
       };
     });
 

@@ -147,16 +147,15 @@ export default function SurveySettingsPage() {
   if (!survey) return null;
 
   return (
-    <main className="min-h-screen bg-slate-50 py-8 px-6">
-      <div className="mx-auto max-w-4xl">
+    <main className="min-h-screen bg-[#f5f5f5] py-8 px-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-slate-900">Configuración</h1>
-          <p className="mt-2 text-slate-600">
+          <h1 className="text-2xl font-bold text-slate-900">Configuración de Encuesta</h1>
+          <p className="mt-1 text-sm text-slate-500">
             {survey.title}
           </p>
         </motion.div>

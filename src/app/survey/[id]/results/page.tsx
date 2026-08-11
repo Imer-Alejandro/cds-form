@@ -70,7 +70,7 @@ interface SurveyResult {
   questions: Question[];
 }
 
-const PIE_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
+const PIE_COLORS = ["#0d7377", "#e8722a", "#22c55e", "#f59e0b", "#0a5c5f", "#c95d1b", "#06b6d4", "#64748b"];
 
 function parseOptions(q: Question): string[] {
   if (!q.options) return [];
@@ -353,7 +353,7 @@ export default function SurveyResultsPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-3 text-sm font-semibold border-b-2 transition -mb-px ${
                 activeTab === tab.key
-                  ? "border-indigo-600 text-indigo-600"
+                  ? "border-[#0d7377] text-[#0d7377]"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >

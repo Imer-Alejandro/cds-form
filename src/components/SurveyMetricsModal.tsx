@@ -67,7 +67,7 @@ export default function SurveyMetricsModal({ surveyId, onClose }: Props) {
                     <XAxis dataKey="name" hide />
                     <YAxis domain={[0, 5]} hide />
                     <Tooltip />
-                    <Bar dataKey="value" radius={[8,8,0,0]} fill="#6366f1">
+                    <Bar dataKey="value" radius={[8,8,0,0]} fill="#0d7377">
                       <Cell />
                     </Bar>
                   </BarChart>
@@ -77,21 +77,21 @@ export default function SurveyMetricsModal({ surveyId, onClose }: Props) {
           </div>
         </div>
 
-        <div className="mt-6 bg-white rounded-lg p-4 border">
+        <div className="mt-6 bg-white rounded-lg p-4 border border-slate-200">
           <div className="text-sm font-semibold text-slate-700 mb-3">Actividad (últimos 7 días)</div>
           <div style={{ height: 180 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data?.timeline || []} margin={{ top: 0, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#0d7377" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#0d7377" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#94a3b8" }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="responses" stroke="#6366f1" fill="url(#g1)" strokeWidth={2} />
+                <Area type="monotone" dataKey="responses" stroke="#0d7377" fill="url(#g1)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

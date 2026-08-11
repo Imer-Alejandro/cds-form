@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyJWT, canManageSurvey } from "@/lib/auth";
+
+async function authorizeSurvey(request: NextRequest, surveyId: string) {
+  const sessionCookie = request.cookies.get("sdc_session")?.value;
+  const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+  if (!session) return { authorized: false, status: 401, error: "No autorizado" };
+
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    include: { departmentConfigs: true },
+  });
+  if (!survey) return { authorized: false, status: 404, error: "Encuesta no encontrada" };
+
+  if (!canManageSurvey(session, survey)) {
+    return { authorized: false, status: 403, error: "No autorizado" };
+  }
+
+  return { authorized: true, survey } as const;
+}
 
 // POST /api/surveys/[id]/questions - Add a question to survey
 export async function POST(
@@ -17,6 +36,11 @@ export async function POST(
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
+
+    const auth = await authorizeSurvey(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const lastQuestion = await prisma.question.findFirst({
@@ -59,6 +83,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const auth = await authorizeSurvey(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const questions = await prisma.question.findMany({
       where: { surveyId: id },
       orderBy: { order: "asc" },
@@ -80,7 +109,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await params;
+    const { id } = await params;
+    const auth = await authorizeSurvey(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const questionId = searchParams.get("questionId");
 
@@ -126,7 +160,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await params;
+    const { id } = await params;
+    const auth = await authorizeSurvey(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
     const { searchParams } = new URL(request.url);
     const questionId = searchParams.get("questionId");
 
@@ -158,6 +196,10 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const auth = await authorizeSurvey(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
     const body = await request.json();
     const { orderedIds } = body;
 

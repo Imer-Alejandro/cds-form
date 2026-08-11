@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyJWT, canManageSurvey, canViewSurvey } from "@/lib/auth";
 
 // GET /api/surveys/[id] - Get a specific survey
 export async function GET(
@@ -25,6 +26,12 @@ export async function GET(
 
     if (!survey) {
       return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+    }
+
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!canViewSurvey(session, survey)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
     const enriched = {
@@ -68,6 +75,25 @@ export async function PUT(
       expiresAt,
     } = body;
 
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const existingSurvey = await prisma.survey.findUnique({
+      where: { id },
+      include: {
+        departmentConfigs: true,
+      },
+    });
+    if (!existingSurvey) {
+      return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+    }
+    if (!canManageSurvey(session, existingSurvey)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
     const existing = await prisma.survey.findUnique({ where: { id }, select: { publishedAt: true } });
 
     const survey = await prisma.survey.update({
@@ -106,6 +132,23 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const existingSurvey = await prisma.survey.findUnique({
+      where: { id },
+      include: { departmentConfigs: true },
+    });
+    if (!existingSurvey) {
+      return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+    }
+    if (!canManageSurvey(session, existingSurvey)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
     await prisma.survey.delete({
       where: { id },
     });

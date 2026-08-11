@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Loading";
@@ -109,6 +110,7 @@ function CustomTooltip({ active, payload, label, formatter }: any) {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,20 +118,33 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/surveys?${new URLSearchParams(filter !== "all" ? { status: filter.toUpperCase() } : {})}`).then((r) => r.json()),
-      fetch("/api/analytics").then((r) => r.json()),
-    ])
-      .then(([surveyData, analyticsData]) => {
+    const fetchData = async () => {
+      try {
+        const [surveyRes, analyticsRes] = await Promise.all([
+          fetch(`/api/surveys?${new URLSearchParams(filter !== "all" ? { status: filter.toUpperCase() } : {})}`),
+          fetch("/api/analytics"),
+        ]);
+
+        if (surveyRes.status === 401 || analyticsRes.status === 401) {
+          router.push("/login");
+          return;
+        }
+
+        const surveyData = await surveyRes.json();
+        const analyticsData = await analyticsRes.json();
+
         setSurveys(surveyData?.surveys || []);
         setAnalytics(analyticsData?.satisfactionBySurvey ? analyticsData : null);
-      })
-      .catch(() => {
+      } catch {
         setSurveys([]);
         setAnalytics(null);
-      })
-      .finally(() => setLoading(false));
-  }, [filter]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [filter, router]);
 
   useEffect(() => {
     if (search) {
@@ -170,6 +185,7 @@ export default function Dashboard() {
   };
 
   return (
+    <>
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-6 sm:px-8 lg:px-12">
       <div className="mx-auto max-w-7xl space-y-8">
         {/* Header */}
@@ -183,9 +199,6 @@ export default function Dashboard() {
             <p className="mt-1 text-sm text-slate-500">Resumen general de tus encuestas</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard/settings" className="px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-              Configuracion Correo
-            </Link>
             <Link href="/survey/new">
               <Button>+ Nueva Encuesta</Button>
             </Link>
@@ -586,5 +599,6 @@ export default function Dashboard() {
         </div>
       </div>
     </main>
+    </>
   );
 }

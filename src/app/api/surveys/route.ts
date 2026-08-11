@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
 
 // GET /api/surveys - Get all surveys with filtering
 export async function GET(request: NextRequest) {
@@ -20,8 +21,17 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const accessFilter = { createdBy: session.userId };
+    const finalWhere = Object.keys(where).length > 0 ? { AND: [where, accessFilter] } : accessFilter;
+
     const surveys = await prisma.survey.findMany({
-      where,
+      where: finalWhere,
       include: {
         creator: { select: { id: true, name: true, email: true } },
         _count: {
@@ -34,7 +44,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const total = await prisma.survey.count({ where });
+    const total = await prisma.survey.count({ where: finalWhere });
 
     const enrichedSurveys = surveys.map((s) => ({
       ...s,
@@ -66,7 +76,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, createdBy } = body;
+    const { title, description } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -75,26 +85,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let userId = createdBy;
-
-    if (!userId) {
-      const defaultUser = await prisma.user.findFirst({
-        orderBy: { createdAt: "asc" },
-      });
-      if (!defaultUser) {
-        return NextResponse.json(
-          { error: "No users found in database" },
-          { status: 400 }
-        );
-      }
-      userId = defaultUser.id;
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const survey = await prisma.survey.create({
       data: {
         title,
         description,
-        createdBy: userId,
+        createdBy: session.userId,
         metadata: {
           create: {},
         },

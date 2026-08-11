@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyJWT, canManageSurvey } from "@/lib/auth";
+
+async function authorizeDepartmentConfig(request: NextRequest, surveyId: string) {
+  const sessionCookie = request.cookies.get("sdc_session")?.value;
+  const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+  if (!session) return { authorized: false, status: 401, error: "No autorizado" };
+
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    include: { departmentConfigs: true },
+  });
+  if (!survey) return { authorized: false, status: 404, error: "Encuesta no encontrada" };
+  if (!canManageSurvey(session, survey)) {
+    return { authorized: false, status: 403, error: "No autorizado" };
+  }
+  return { authorized: true, survey } as const;
+}
 
 // POST /api/surveys/[id]/department-config
 export async function POST(
@@ -10,6 +27,11 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
     const { department, responsibleEmail, sendSummary, sendOnCompletion, summaryFrequency } = body;
+
+    const auth = await authorizeDepartmentConfig(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
     if (!department || !responsibleEmail) {
       return NextResponse.json(
@@ -82,6 +104,10 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const auth = await authorizeDepartmentConfig(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
     const body = await request.json();
     const { configId, department, responsibleEmail, sendSummary, sendOnCompletion, summaryFrequency } = body;
 
@@ -126,6 +152,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    const auth = await authorizeDepartmentConfig(request, id);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
     const { searchParams } = new URL(request.url);
     const configId = searchParams.get("configId");
 

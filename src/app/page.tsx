@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
 import { motion } from "framer-motion";
 
 const modules = [
@@ -21,9 +20,7 @@ const features = [
 
 export default function Home() {
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_28%),linear-gradient(135deg,_#f8fafc_0%,_#eef2ff_100%)]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_28%),linear-gradient(135deg,_#f8fafc_0%,_#eef2ff_100%)]">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 lg:px-12">
           {/* Hero Section */}
           <motion.section
@@ -132,6 +129,5 @@ export default function Home() {
           </motion.section>
         </div>
       </main>
-    </>
   );
 }

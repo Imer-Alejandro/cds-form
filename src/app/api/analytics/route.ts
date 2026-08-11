@@ -1,30 +1,38 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const surveyId = searchParams.get("surveyId");
+
+    const sessionCookie = request.cookies.get("sdc_session")?.value;
+    const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const surveyWhere = surveyId
+      ? { createdBy: session.userId, id: surveyId }
+      : { createdBy: session.userId };
+
     const surveys = await prisma.survey.findMany({
+      where: surveyWhere,
       include: {
         metadata: true,
-        questions: {
-          select: { id: true, type: true, title: true },
-        },
-        responses: {
-          select: {
-            id: true,
-            status: true,
-            completedAt: true,
-            createdAt: true,
-            answers: {
-              select: { value: true, questionId: true },
-            },
-          },
-        },
+        questions: { select: { id: true, type: true, title: true } },
+        responses: { select: { id: true, status: true, completedAt: true, createdAt: true, answers: { select: { value: true, questionId: true } } } },
+        departmentConfigs: true,
       },
     });
 
+    if (surveyId && surveys.length === 0) {
+      return NextResponse.json({ error: "Encuesta no encontrada o sin acceso" }, { status: 404 });
+    }
+
     // Average satisfaction per survey (from RATING questions)
-    const satisfactionBySurvey = surveys.map((s) => {
+    const satisfactionBySurvey = surveys.map((s: any) => {
       const ratingQuestions = s.questions.filter((q) => q.type === "RATING");
       const ratingQuestionIds = new Set(ratingQuestions.map((q) => q.id));
 
@@ -61,20 +69,21 @@ export async function GET() {
     });
 
     // NPS distribution
-    const npsQuestions = await prisma.question.findMany({
-      where: { type: "NET_PROMOTER_SCORE" },
-      select: { id: true },
-    });
-    const npsQuestionIds = new Set(npsQuestions.map((q) => q.id));
+    const npsQuestionIds = new Set(
+      surveys
+        .flatMap((s: any) => s.questions)
+        .filter((q: any) => q.type === "NET_PROMOTER_SCORE")
+        .map((q: any) => q.id)
+    );
 
     let npsDetractors = 0;
     let npsPassives = 0;
     let npsPromoters = 0;
 
-    const allAnswers = await prisma.answer.findMany({
-      where: { questionId: { in: Array.from(npsQuestionIds) } },
-      select: { value: true },
-    });
+    const accessibleQuestionIds = Array.from(npsQuestionIds);
+    const allAnswers = accessibleQuestionIds.length > 0
+      ? await prisma.answer.findMany({ where: { questionId: { in: accessibleQuestionIds } }, select: { value: true } })
+      : [];
 
     for (const ans of allAnswers) {
       if (ans.value) {
@@ -92,9 +101,10 @@ export async function GET() {
       ? Math.round(((npsPromoters - npsDetractors) / npsTotal) * 100)
       : 0;
 
-    // Response timeline (last 7 days)
+    // Response timeline (last 7 days) restricted to accessible surveys
     const now = new Date();
     const timeline: { date: string; responses: number }[] = [];
+    const accessibleSurveyIds = surveys.map((s: any) => s.id);
     for (let i = 6; i >= 0; i--) {
       const day = new Date(now);
       day.setDate(day.getDate() - i);
@@ -105,6 +115,7 @@ export async function GET() {
 
       const count = await prisma.response.count({
         where: {
+          surveyId: { in: accessibleSurveyIds },
           createdAt: { gte: startOfDay, lt: endOfDay },
         },
       });
@@ -115,15 +126,16 @@ export async function GET() {
 
     // Status distribution
     const statusCounts = {
-      DRAFT: surveys.filter((s) => s.status === "DRAFT").length,
-      PUBLISHED: surveys.filter((s) => s.status === "PUBLISHED").length,
-      ARCHIVED: surveys.filter((s) => s.status === "ARCHIVED").length,
-      CLOSED: surveys.filter((s) => s.status === "CLOSED").length,
+      DRAFT: surveys.filter((s: any) => s.status === "DRAFT").length,
+      PUBLISHED: surveys.filter((s: any) => s.status === "PUBLISHED").length,
+      ARCHIVED: surveys.filter((s: any) => s.status === "ARCHIVED").length,
+      CLOSED: surveys.filter((s: any) => s.status === "CLOSED").length,
     };
 
     // Question type distribution
     const allQuestions = await prisma.question.groupBy({
       by: ["type"],
+      where: { surveyId: { in: accessibleSurveyIds } },
       _count: true,
     });
     const questionTypeDist = allQuestions.map((q) => ({

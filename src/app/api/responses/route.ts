@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildExecutiveSummaryEmail, sendEmail } from "@/lib/email";
+import { verifyJWT, canViewSurvey } from "@/lib/auth";
+
+async function authorizeSurveyView(request: NextRequest, surveyId: string) {
+  const sessionCookie = request.cookies.get("sdc_session")?.value;
+  const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
+  const survey = await prisma.survey.findUnique({
+    where: { id: surveyId },
+    include: { departmentConfigs: true },
+  });
+  if (!survey) return { authorized: false, status: 404, error: "Encuesta no encontrada" };
+  if (!canViewSurvey(session, survey)) {
+    return { authorized: false, status: 403, error: "No autorizado" };
+  }
+  return { authorized: true, survey } as const;
+}
 
 // POST /api/responses - Create or submit a survey response
 export async function POST(request: NextRequest) {
@@ -16,6 +31,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "start") {
+      const access = await authorizeSurveyView(request, surveyId);
+      if (!access.authorized) {
+        return NextResponse.json({ error: access.error }, { status: access.status });
+      }
+
       const existingId = body.responseId;
       if (existingId) {
         const existing = await prisma.response.findUnique({ where: { id: existingId } });
@@ -49,6 +69,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "abandon") {
+      const access = await authorizeSurveyView(request, surveyId);
+      if (!access.authorized) {
+        return NextResponse.json({ error: access.error }, { status: access.status });
+      }
+
       const { responseId } = body;
       if (!responseId) {
         return NextResponse.json({ error: "responseId required" }, { status: 400 });
@@ -70,6 +95,11 @@ export async function POST(request: NextRequest) {
 
     if (!answers) {
       return NextResponse.json({ error: "Missing answers" }, { status: 400 });
+    }
+
+    const access = await authorizeSurveyView(request, surveyId);
+    if (!access.authorized) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const existingId = body.responseId;
@@ -177,6 +207,11 @@ export async function GET(request: NextRequest) {
         { error: "surveyId is required" },
         { status: 400 }
       );
+    }
+
+    const access = await authorizeSurveyView(request, surveyId);
+    if (!access.authorized) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const where: any = { surveyId };

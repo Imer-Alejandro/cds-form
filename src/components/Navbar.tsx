@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => setAuthenticated(data.authenticated))
+      .catch(() => setAuthenticated(false));
+  }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
 
   return (
     <nav className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40">
@@ -30,12 +43,20 @@ export function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            <button className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition">
-              Perfil
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-              Salir
-            </button>
+            {authenticated ? (
+              <>
+                <Link href="/dashboard" className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition">
+                  Mi cuenta
+                </Link>
+                <button onClick={handleLogout} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                  Salir
+                </button>
+              </>
+            ) : (
+              <Link href="/login" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                Iniciar sesión
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}

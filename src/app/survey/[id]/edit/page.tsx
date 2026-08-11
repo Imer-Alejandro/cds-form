@@ -175,6 +175,7 @@ export default function SurveyEditorPage() {
   const [form, setForm] = useState(emptyQuestion);
   const [newOption, setNewOption] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [savingQuestion, setSavingQuestion] = useState(false);
   const [showDeptModal, setShowDeptModal] = useState(false);
   const [deptForm, setDeptForm] = useState({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" });
   const [editingDept, setEditingDept] = useState<any>(null);
@@ -335,6 +336,8 @@ export default function SurveyEditorPage() {
       payload.maxLabel = form.maxLabel || null;
     }
 
+    if (savingQuestion) return;
+    setSavingQuestion(true);
     try {
       if (editingQuestion) {
         const qs = new URLSearchParams({ questionId: editingQuestion.id });
@@ -358,6 +361,8 @@ export default function SurveyEditorPage() {
       setShowModal(false);
     } catch (error) {
       showToast("Error al guardar la pregunta", "error");
+    } finally {
+      setSavingQuestion(false);
     }
   }
 
@@ -458,17 +463,11 @@ export default function SurveyEditorPage() {
               </div>
               <div className="flex flex-col gap-2 shrink-0">
                 <div className="flex gap-2">
-                  <Button variant={survey.isPublished ? "success" : "secondary"} onClick={handlePublish} disabled={survey.questions.length === 0}>
+                  <Button variant={survey.isPublished ? "success" : "primary"} size="lg" onClick={handlePublish} disabled={survey.questions.length === 0}>
                     {survey.isPublished ? "✓ Publicada" : "Publicar"}
                   </Button>
-                  <Link href={`/survey/${surveyId}/settings`}>
-                    <Button variant="secondary">Compartir</Button>
-                  </Link>
                 </div>
                 <div className="flex gap-2">
-                  <Link href={`/survey/${surveyId}/results`}>
-                    <Button variant="secondary" size="sm">Resultados</Button>
-                  </Link>
                   <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard")}>Volver</Button>
                 </div>
               </div>
@@ -701,8 +700,8 @@ export default function SurveyEditorPage() {
 
           {/* Actions */}
           <div className="flex gap-3 pt-2 border-t border-slate-200">
-            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button fullWidth onClick={handleSave}>
+            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)} disabled={savingQuestion}>Cancelar</Button>
+            <Button fullWidth onClick={handleSave} loading={savingQuestion} disabled={savingQuestion}>
               {editingQuestion ? "Guardar Cambios" : "Agregar Pregunta"}
             </Button>
           </div>

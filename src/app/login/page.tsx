@@ -121,6 +121,7 @@ export default function LoginPage() {
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Contraseña</label>
                 <button
                   type="button"
+                  disabled={status === "sending"}
                   onClick={() => {
                     if (!email) {
                       setErrorMsg("Escribe tu correo para enviarte el enlace de acceso.");
@@ -149,7 +150,7 @@ export default function LoginPage() {
                         setStatus("error");
                       });
                   }}
-                  className="text-xs font-medium text-[#0d7377] hover:text-[#0a5c5f]"
+                  className="text-xs font-medium text-[#0d7377] hover:text-[#0a5c5f] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -165,7 +166,11 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="w-full bg-[#0d7377] hover:bg-[#0a5c5f] text-white font-medium rounded-md py-2.5 text-sm transition shadow-sm">
+          <button
+            type="submit"
+            disabled={status === "sending"}
+            className="w-full bg-[#0d7377] hover:bg-[#0a5c5f] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-md py-2.5 text-sm transition shadow-sm"
+          >
             {status === "sending"
               ? "Enviando..."
               : mode === "login"

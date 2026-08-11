@@ -316,7 +316,7 @@ export default function RespondSurveyPage() {
               >
                 <h1 className="text-2xl font-bold text-slate-900">{survey.title}</h1>
                 {survey.description && (
-                  <p className="mt-2 text-slate-600 text-base">{survey.description}</p>
+                  <p className="mt-2 mx-auto max-w-xl text-sm leading-relaxed text-slate-500">{survey.description}</p>
                 )}
               </motion.div>
             )}
@@ -357,11 +357,11 @@ export default function RespondSurveyPage() {
                 className="space-y-6"
               >
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-slate-900 leading-snug">
+                  <h2 className="text-xl font-bold text-slate-900 leading-snug">
                     {currentQuestion.title}
                   </h2>
                   {currentQuestion.description && (
-                    <p className="mt-2 text-slate-500">{currentQuestion.description}</p>
+                    <p className="mt-2 mx-auto max-w-lg text-sm leading-relaxed text-slate-500">{currentQuestion.description}</p>
                   )}
                   {currentQuestion.required && (
                     <p className="mt-2 text-xs font-medium text-red-400 tracking-wide">Requerida</p>
@@ -434,26 +434,22 @@ export default function RespondSurveyPage() {
                         return (
                           <button
                             key={option}
-                            onClick={() => {
-                              const next = isChecked
-                                ? selected.filter((v) => v !== option)
-                                : [...selected, option];
-                              setAnswers({ ...answers, [currentQuestion.id]: next });
-                            }}
+                            onClick={() =>
+                              setAnswers({
+                                ...answers,
+                                [currentQuestion.id]: isChecked ? [] : [option],
+                              })
+                            }
                             className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all duration-150 ${
                               isChecked
                                 ? "border-[#0d7377] bg-teal-50/50 ring-2 ring-[#0d7377]/20"
                                 : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                             }`}
                           >
-                            <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition ${
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
                               isChecked ? "border-[#0d7377] bg-[#0d7377]" : "border-slate-300"
                             }`}>
-                              {isChecked && (
-                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
-                              )}
+                              {isChecked && <span className="h-2 w-2 rounded-full bg-white" />}
                             </span>
                             <span className={`font-medium ${isChecked ? "text-[#0d7377]" : "text-slate-700"}`}>{option}</span>
                           </button>

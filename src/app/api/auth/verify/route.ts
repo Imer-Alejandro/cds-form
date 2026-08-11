@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMagicToken, signJWT } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getBaseUrl } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,8 +21,9 @@ export async function GET(request: NextRequest) {
       60 * 60 * 24 * 7
     );
 
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "/";
-    const res = NextResponse.redirect(new URL("/dashboard", redirectUrl));
+    const requestUrl = new URL(request.url);
+    const redirectOrigin = process.env.NEXT_PUBLIC_BASE_URL || requestUrl.origin || getBaseUrl();
+    const res = NextResponse.redirect(new URL("/dashboard", redirectOrigin));
 
     const secure = process.env.NODE_ENV === "production";
     res.headers.set(

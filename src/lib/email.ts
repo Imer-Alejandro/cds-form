@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { prisma } from "./prisma";
 
-async function getTransporter(): Promise<nodemailer.Transporter> {
+async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; fromAddress: string }> {
   try {
     const smtpConfig = await prisma.sMTPConfig.findFirst({
       where: { isActive: true },
@@ -9,23 +9,35 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
     });
 
     if (smtpConfig) {
-      return nodemailer.createTransport({
-        host: smtpConfig.host,
-        port: smtpConfig.port,
-        secure: smtpConfig.secure,
-        auth: { user: smtpConfig.user, pass: smtpConfig.password },
-      });
+      return {
+        transporter: nodemailer.createTransport({
+          host: smtpConfig.host,
+          port: smtpConfig.port,
+          secure: smtpConfig.secure,
+          auth: { user: smtpConfig.user, pass: smtpConfig.password },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 10000,
+        }),
+        fromAddress: `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`,
+      };
     }
   } catch (error) {
     console.error("Failed to load SMTP config from DB:", error);
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_PORT === "465",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-  });
+  return {
+    transporter: nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_PORT === "465",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+    }),
+    fromAddress: process.env.SMTP_USER || "no-reply@example.com",
+  };
 }
 
 export function resetTransporter() {}
@@ -39,11 +51,7 @@ export interface EmailOptions {
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string }> {
   try {
-    const transporter = await getTransporter();
-    const smtpConfig = await prisma.sMTPConfig.findFirst({ where: { isActive: true } });
-    const fromAddress = smtpConfig
-      ? `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`
-      : process.env.SMTP_USER;
+    const { transporter, fromAddress } = await getTransporter();
 
     const result = await transporter.sendMail({
       from: fromAddress,

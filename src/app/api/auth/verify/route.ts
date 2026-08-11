@@ -10,19 +10,33 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Token requerido" }, { status: 400 });
 
     const payload = await verifyMagicToken(token as string);
-    if (!payload || !payload.userId) return NextResponse.json({ error: "Token invalido o expirado" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-
-    // Create session token (7 days) and include department for RBAC
-    const sessionToken = await signJWT(
-      { userId: user.id, role: user.role, department: user.department || null },
-      60 * 60 * 24 * 7
-    );
+    if (!payload) return NextResponse.json({ error: "Token invalido o expirado" }, { status: 401 });
 
     const requestUrl = new URL(request.url);
     const redirectOrigin = process.env.NEXT_PUBLIC_BASE_URL || requestUrl.origin || getBaseUrl();
+
+    let user = null as any;
+    if (payload.userId) {
+      user = await prisma.user.findUnique({ where: { id: payload.userId } });
+      if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+    } else if (payload.email) {
+      user = await prisma.user.findUnique({ where: { email: payload.email } });
+    } else {
+      return NextResponse.json({ error: "Token invalido" }, { status: 401 });
+    }
+
+    // New user, or existing user without credentials yet → set name + password first
+    if (!user || !user.passwordHash) {
+      const registerUrl = new URL("/register", redirectOrigin);
+      registerUrl.searchParams.set("token", token);
+      return NextResponse.redirect(registerUrl);
+    }
+
+    const sessionToken = await signJWT(
+      { userId: user.id, role: user.role, email: user.email, department: user.department || null },
+      60 * 60 * 24 * 7
+    );
+
     const res = NextResponse.redirect(new URL("/dashboard", redirectOrigin));
 
     const secure = process.env.NODE_ENV === "production";

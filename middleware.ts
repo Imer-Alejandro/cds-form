@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname === "/login" ||
+    pathname === "/register" ||
     pathname === "/favicon.ico"
   ) {
     return NextResponse.next();

@@ -13,9 +13,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const accessFilter = buildSurveyAccessFilter(session);
+
     const surveyWhere = surveyId
-      ? { createdBy: session.userId, id: surveyId }
-      : { createdBy: session.userId };
+      ? { AND: [{ id: surveyId }, accessFilter] }
+      : accessFilter;
 
     const surveys = await prisma.survey.findMany({
       where: surveyWhere,

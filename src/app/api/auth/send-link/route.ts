@@ -2,29 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateMagicToken } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
-import { generateSurveyUrl, getBaseUrl } from "@/lib/utils";
+import { getBaseUrl } from "@/lib/utils";
+
+const ALLOWED_DOMAINS = ["sanchezbusinesscorp.com", "kexford.com", "jsanchezcomercial.com"];
+
+function isAllowedDomain(email: string) {
+  const domain = email.toLowerCase().split("@")?.[1];
+  return !!domain && ALLOWED_DOMAINS.includes(domain);
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const email = (body.email || "").toLowerCase();
-    if (!email) return NextResponse.json({ error: "Email requerido" }, { status: 400 });
+    const email = (body.email || "").toLowerCase().trim();
+    const mode = (body.mode || "login").toString();
 
-    let user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      user = await prisma.user.create({ data: { email, name: email.split("@")[0] } });
+    if (!email) return NextResponse.json({ error: "Email requerido" }, { status: 400 });
+    if (!isAllowedDomain(email)) {
+      return NextResponse.json({ error: "Solo se permiten correos corporativos autorizados" }, { status: 403 });
     }
 
-    const token = await generateMagicToken({ userId: user.id, email: user.email });
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (mode === "login" && !user) {
+      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+    }
+
+    const payload = user
+      ? { userId: user.id, email: user.email }
+      : { email, mode };
+
+    const token = await generateMagicToken(payload);
     const base = process.env.NEXT_PUBLIC_BASE_URL || getBaseUrl();
     const link = `${base}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
     await sendEmail({
-      to: user.email,
-      subject: "Accede a SDC Form — enlace mágico",
-      html: `<p>Hola ${user.name || ""},</p>
-             <p>Haz clic en el siguiente enlace para iniciar sesión — expira en 15 minutos:</p>
-             <p><a href="${link}" style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;">Iniciar sesión</a></p>
+      to: email,
+      subject: mode === "register" ? "Registra tu acceso a SDC Form" : "Accede a SDC Form — enlace mágico",
+      html: `<p>Hola ${email.split("@")[0] || ""},</p>
+             <p>Haz clic en el siguiente enlace para ${mode === "register" ? "registrarte y entrar" : "iniciar sesión"} — expira en 15 minutos:</p>
+             <p><a href="${link}" style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;">${mode === "register" ? "Crear acceso" : "Iniciar sesión"}</a></p>
              <p>Si no solicitaste este enlace, ignora este correo.</p>`,
     });
 

@@ -116,6 +116,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "draft" | "published" | "closed">("all");
   const [search, setSearch] = useState("");
+  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((data) => setUser(data.user || null))
+      .catch(() => setUser(null));
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -195,8 +203,12 @@ export default function Dashboard() {
           className="flex items-center justify-between"
         >
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-500">Resumen general de tus encuestas</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {user?.name ? `Hola, ${user.name}` : "Dashboard"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {user?.email ? `Bienvenido de nuevo (${user.email}).` : "Resumen general de tus encuestas"}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/survey/new">

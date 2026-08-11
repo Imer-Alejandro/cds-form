@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 const SECRET = process.env.AUTH_SECRET || "replace_this_with_strong_secret";
 
 function toBase64UrlFromBytes(bytes: Uint8Array) {
@@ -50,6 +52,21 @@ function constantTimeCompare(a: Uint8Array, b: Uint8Array) {
   return result === 0;
 }
 
+export function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+  return `${salt}:${derived}`;
+}
+
+export function verifyPassword(password: string, storedHash: string | null | undefined) {
+  if (!storedHash) return false;
+  const [salt, expectedHash] = storedHash.split(":");
+  if (!salt || !expectedHash) return false;
+
+  const derived = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(expectedHash), Buffer.from(derived));
+}
+
 export async function signJWT(payload: Record<string, any>, expiresInSec = 60 * 60 * 24 * 7) {
   const header = { alg: "HS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
@@ -94,6 +111,7 @@ export function buildSurveyAccessFilter(session: Record<string, any> | null) {
     return { id: "__no_access__" };
   }
 
+  // Each user only sees the surveys they created
   return { createdBy: session.userId };
 }
 

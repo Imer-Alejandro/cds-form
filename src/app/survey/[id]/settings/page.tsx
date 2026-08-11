@@ -153,11 +153,17 @@ export default function SurveySettingsPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
         >
-          <h1 className="text-2xl font-bold text-slate-900">Configuración de Encuesta</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {survey.title}
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Configuración de Encuesta</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {survey.title}
+            </p>
+          </div>
+          <Button onClick={() => router.back()} variant="secondary" className="self-start">
+            Volver
+          </Button>
         </motion.div>
 
         {/* Share Section */}
@@ -281,12 +287,7 @@ export default function SurveySettingsPage() {
           </div>
         </motion.div>
 
-        {/* Back Button */}
-        <div className="mt-8">
-          <Button onClick={() => router.back()} variant="secondary">
-            Volver
-          </Button>
-        </div>
+
       </div>
 
       {/* Add Department Modal */}

@@ -49,15 +49,15 @@ interface Survey {
 }
 
 const questionTypes = [
-  { value: "SHORT_TEXT", label: "Texto Corto", icon: "TEXT", hasOptions: false },
-  { value: "LONG_TEXT", label: "Texto Largo", icon: "DOC", hasOptions: false },
-  { value: "MULTIPLE_CHOICE", label: "Opción Múltiple", icon: "CHOICE", hasOptions: true },
-  { value: "CHECKBOX", label: "Casillas", icon: "CHECK", hasOptions: true },
-  { value: "RATING", label: "Calificación", icon: "STAR", hasOptions: false },
-  { value: "SCALE", label: "Escala", icon: "SCALE", hasOptions: false },
-  { value: "DATE", label: "Fecha", icon: "DATE", hasOptions: false },
-  { value: "EMAIL", label: "Email", icon: "MAIL", hasOptions: false },
-  { value: "NET_PROMOTER_SCORE", label: "NPS", icon: "NPS", hasOptions: false },
+  { value: "SHORT_TEXT", label: "Texto Corto", icon: "✍️", hasOptions: false },
+  { value: "LONG_TEXT", label: "Texto Largo", icon: "📝", hasOptions: false },
+  { value: "MULTIPLE_CHOICE", label: "Opción Múltiple", icon: "🔘", hasOptions: true },
+  { value: "CHECKBOX", label: "Casillas", icon: "☑️", hasOptions: true },
+  { value: "RATING", label: "Calificación", icon: "⭐", hasOptions: false },
+  { value: "SCALE", label: "Escala", icon: "📏", hasOptions: false },
+  { value: "DATE", label: "Fecha", icon: "📅", hasOptions: false },
+  { value: "EMAIL", label: "Email", icon: "📧", hasOptions: false },
+  { value: "NET_PROMOTER_SCORE", label: "NPS", icon: "📈", hasOptions: false },
 ];
 
 const emptyQuestion = {
@@ -462,68 +462,32 @@ export default function SurveyEditorPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant={survey.isPublished ? "success" : "primary"} size="lg" onClick={handlePublish} disabled={survey.questions.length === 0}>
                     {survey.isPublished ? "✓ Publicada" : "Publicar"}
                   </Button>
+                  <Button variant="primary" size="lg" onClick={openAddModal}>
+                    + Agregar Pregunta
+                  </Button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard")}>Volver</Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setEditingDept(null); setDeptForm({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" }); setShowDeptModal(true); }}>
+                    + Agregar Departamento
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Questions List */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-4">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={survey.questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
-              <AnimatePresence>
-                {survey.questions.map((question, index) => (
-                  <SortableQuestion
-                    key={question.id}
-                    question={question}
-                    index={index}
-                    onEdit={openEditModal}
-                    onDelete={handleDelete}
-                    deleting={deleting}
-                  />
-                ))}
-              </AnimatePresence>
-            </SortableContext>
-          </DndContext>
-
-          {survey.questions.length === 0 && (
-            <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center text-slate-500">
-              <p className="text-lg">Aún no hay preguntas</p>
-              <p className="mt-1 text-sm">Agrega la primera pregunta para comenzar</p>
-            </div>
-          )}
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={openAddModal}
-            className="w-full rounded-lg border-2 border-dashed border-slate-300 p-6 text-slate-600 hover:border-blue-500 hover:text-blue-600 transition"
-          >
-            + Agregar Pregunta
-          </motion.button>
-        </motion.div>
-
         {/* Department / Responsible Section */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border border-slate-200 bg-white p-6">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Departamentos y Responsables</h2>
               <p className="text-sm text-slate-500 mt-0.5">Configura quien recibe notificaciones cuando se completen respuestas</p>
             </div>
-            <button
-              onClick={() => { setEditingDept(null); setDeptForm({ department: "", responsibleEmail: "", sendSummary: true, sendOnCompletion: true, summaryFrequency: "IMMEDIATELY" }); setShowDeptModal(true); }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
-            >
-              + Agregar
-            </button>
           </div>
 
           {survey.departmentConfigs && survey.departmentConfigs.length > 0 ? (
@@ -559,6 +523,34 @@ export default function SurveyEditorPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Questions List */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="space-y-4">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={survey.questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+              <AnimatePresence>
+                {survey.questions.map((question, index) => (
+                  <SortableQuestion
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    onEdit={openEditModal}
+                    onDelete={handleDelete}
+                    deleting={deleting}
+                  />
+                ))}
+              </AnimatePresence>
+            </SortableContext>
+          </DndContext>
+
+          {survey.questions.length === 0 && (
+            <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center text-slate-500">
+              <p className="text-lg">Aún no hay preguntas</p>
+              <p className="mt-1 text-sm">Agrega la primera pregunta para comenzar</p>
+            </div>
+          )}
+        </motion.div>
+
       </div>
 
       {/* Question Modal */}
@@ -591,18 +583,22 @@ export default function SurveyEditorPage() {
           {/* Type Selector */}
           <div>
             <label className="block text-sm font-medium text-slate-900 mb-2">Tipo de pregunta</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {questionTypes.map((type) => (
                 <button
                   key={type.value}
+                  type="button"
                   onClick={() => setForm({ ...form, type: type.value })}
-                  className={`p-3 rounded-lg border text-left text-sm transition ${
+                  title={type.label}
+                  aria-label={type.label}
+                  className={`flex items-center justify-start gap-2 rounded-lg border px-3 py-3 text-left text-sm transition ${
                     form.type === type.value
-                      ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
-                      : "border-slate-200 hover:border-slate-300 text-slate-700"
+                      ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <span className="mr-1">{type.icon}</span> {type.label}
+                  <span className="text-xl leading-none">{type.icon}</span>
+                  <span className="font-medium">{type.label}</span>
                 </button>
               ))}
             </div>

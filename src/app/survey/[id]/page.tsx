@@ -68,9 +68,15 @@ export default function RespondSurveyPage() {
   const [direction, setDirection] = useState(1);
   const [wentBack, setWentBack] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const responseIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
+  const deptRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    deptRef.current = new URLSearchParams(window.location.search).get("dept");
+  }, []);
 
   useEffect(() => {
     fetchSurvey();
@@ -84,11 +90,25 @@ export default function RespondSurveyPage() {
     const existingId = localStorage.getItem(storageKey);
     responseIdRef.current = existingId;
 
-    if (!existingId) {
+    if (existingId) {
+      fetch(`/api/responses?surveyId=${surveyId}&limit=1`)
+        .then((r) => r.json())
+        .then((data) => {
+          const resp = (data.responses || []).find((r: any) => r.id === existingId);
+          if (resp?.status === "COMPLETED") {
+            setBlocked(true);
+          }
+        })
+        .catch(() => {});
+    } else {
       fetch("/api/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surveyId, action: "start" }),
+        body: JSON.stringify({
+          surveyId,
+          action: "start",
+          respondentDepartment: deptRef.current,
+        }),
       })
         .then((res) => res.json())
         .then((data) => {

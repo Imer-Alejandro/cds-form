@@ -150,6 +150,7 @@ model Response {
   // Respondent info (for anonymous responses)
   respondentEmail   String?
   respondentName    String?
+  respondentDepartment String?
   
   // Status
   status            ResponseStatus @default(STARTED)

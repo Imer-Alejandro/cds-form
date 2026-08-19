@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
 
+const MIN_DEPT_RESPONSES = 5;
+
+function anonymizeDepartment(dept: string | null, counts: Record<string, number>): string {
+  if (!dept) return "Sin departamento";
+  return (counts[dept] || 0) >= MIN_DEPT_RESPONSES ? dept : "General";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -24,7 +31,16 @@ export async function GET(request: NextRequest) {
       include: {
         metadata: true,
         questions: { select: { id: true, type: true, title: true } },
-        responses: { select: { id: true, status: true, completedAt: true, createdAt: true, answers: { select: { value: true, questionId: true } } } },
+        responses: {
+          select: {
+            id: true,
+            status: true,
+            completedAt: true,
+            createdAt: true,
+            respondentDepartment: true,
+            answers: { select: { value: true, questionId: true } },
+          },
+        },
         departmentConfigs: true,
       },
     });
@@ -145,12 +161,57 @@ export async function GET(request: NextRequest) {
       count: q._count,
     }));
 
+    // Department breakdown with anonymity for small departments
+    const allResponses = surveys.flatMap((s: any) => s.responses);
+    const rawDeptCounts: Record<string, number> = {};
+    for (const resp of allResponses) {
+      const dept = resp.respondentDepartment || null;
+      const key = dept || "__none__";
+      rawDeptCounts[key] = (rawDeptCounts[key] || 0) + 1;
+    }
+    const deptCounts: Record<string, number> = {};
+    for (const [key, count] of Object.entries(rawDeptCounts)) {
+      const dept = key === "__none__" ? null : key;
+      const label = anonymizeDepartment(dept, rawDeptCounts);
+      deptCounts[label] = (deptCounts[label] || 0) + count;
+    }
+    const departmentBreakdown = Object.entries(deptCounts)
+      .map(([department, count]) => ({ department, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Per-question averages (only when a specific survey is requested)
+    let questionAverages: { questionId: string; title: string; type: string; avg: number; count: number }[] = [];
+    if (surveyId && surveys.length === 1) {
+      const survey = surveys[0];
+      const questionIds = survey.questions.map((q: any) => q.id);
+      const allAnswersForSurvey = questionIds.length > 0
+        ? await prisma.answer.findMany({
+            where: { questionId: { in: questionIds } },
+            select: { questionId: true, value: true },
+          })
+        : [];
+      const answersByQuestion: Record<string, string[]> = {};
+      for (const a of allAnswersForSurvey) {
+        if (!answersByQuestion[a.questionId]) answersByQuestion[a.questionId] = [];
+        if (a.value) answersByQuestion[a.questionId].push(a.value);
+      }
+      questionAverages = survey.questions.map((q: any) => {
+        const vals = (answersByQuestion[q.id] || [])
+          .map((v) => parseFloat(v))
+          .filter((n) => !isNaN(n));
+        const avg = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+        return { questionId: q.id, title: q.title, type: q.type, avg: Math.round(avg * 10) / 10, count: vals.length };
+      });
+    }
+
     return NextResponse.json({
       satisfactionBySurvey,
       nps: { promoters: npsPromoters, passives: npsPassives, detractors: npsDetractors, score: npsScore },
       timeline,
       statusCounts,
       questionTypeDist,
+      departmentBreakdown,
+      questionAverages,
     });
   } catch (error) {
     console.error("Error fetching analytics:", error);

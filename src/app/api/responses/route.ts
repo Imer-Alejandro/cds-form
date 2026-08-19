@@ -21,7 +21,7 @@ async function authorizeSurveyView(request: NextRequest, surveyId: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { surveyId, respondentId, respondentEmail, respondentName, answers, action } = body;
+    const { surveyId, respondentId, respondentEmail, respondentName, respondentDepartment, answers, action } = body;
 
     if (!surveyId) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
           respondentId: respondentId || null,
           respondentEmail: respondentEmail || null,
           respondentName: respondentName || null,
+          respondentDepartment: respondentDepartment || null,
           status: "STARTED",
         },
       });
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
             respondentId: respondentId || null,
             respondentEmail: respondentEmail || null,
             respondentName: respondentName || null,
+            respondentDepartment: respondentDepartment || null,
           },
           include: { answers: true },
         });
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest) {
           respondentId: respondentId || null,
           respondentEmail: respondentEmail || null,
           respondentName: respondentName || null,
+          respondentDepartment: respondentDepartment || null,
           status: "COMPLETED",
           completedAt: new Date(),
           answers: {

@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
           email,
           name,
           role: "VIEWER",
-          passwordHash: hashPassword(password),
+          passwordHash: await hashPassword(password),
         },
       });
     } else {
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { name, passwordHash: hashPassword(password) },
+        data: { name, passwordHash: await hashPassword(password) },
       });
     }
 

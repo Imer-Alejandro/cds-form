@@ -56,6 +56,7 @@ interface Analytics {
   timeline: { date: string; responses: number }[];
   statusCounts: { DRAFT: number; PUBLISHED: number; ARCHIVED: number; CLOSED: number };
   questionTypeDist: { type: string; count: number }[];
+  departmentBreakdown: { department: string; count: number }[];
 }
 
 const STATUS_MAP: Record<string, string> = {
@@ -117,6 +118,8 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<"all" | "draft" | "published" | "closed">("all");
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -161,6 +164,43 @@ export default function Dashboard() {
         .then((d) => setSurveys(d.surveys || []));
     }
   }, [search]);
+
+  async function handleDuplicate(surveyId: string, title: string) {
+    if (!window.confirm(`¿Duplicar "${title}"? Se creará una copia sin respuestas.`)) return;
+    setDuplicating(surveyId);
+    try {
+      const res = await fetch(`/api/surveys/${surveyId}/duplicate`, { method: "POST" });
+      if (res.ok) {
+        const newSurvey = await res.json();
+        router.push(`/survey/${newSurvey.id}/edit`);
+      } else {
+        const data = await res.json();
+        alert(data.error || "No se pudo duplicar");
+      }
+    } catch {
+      alert("Error al duplicar");
+    } finally {
+      setDuplicating(null);
+    }
+  }
+
+  async function handleDelete(surveyId: string, title: string) {
+    if (!window.confirm(`¿Eliminar "${title}"? Esta acción no se puede deshacer.`)) return;
+    setDeleting(surveyId);
+    try {
+      const res = await fetch(`/api/surveys/${surveyId}`, { method: "DELETE" });
+      if (res.ok) {
+        setSurveys((prev) => prev.filter((s) => s.id !== surveyId));
+      } else {
+        const data = await res.json();
+        alert(data.error || "No se pudo eliminar");
+      }
+    } catch {
+      alert("Error al eliminar");
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   const stats = {
     totalSurveys: surveys.length,
@@ -211,6 +251,11 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/dashboard/compare">
+              <button className="px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50">
+                Comparar encuestas
+              </button>
+            </Link>
             <Link href="/survey/new">
               <Button variant="primary">+ Nueva Encuesta</Button>
             </Link>
@@ -524,6 +569,43 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Department Breakdown */}
+        {analytics && analytics.departmentBreakdown && analytics.departmentBreakdown.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.85 }}
+            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5"
+          >
+            <h2 className="text-sm font-bold text-slate-900 mb-1">Respuestas por Departamento</h2>
+            <p className="text-xs text-slate-400 mb-5">Departamentos con menos de 5 respuestas se agrupan como "General"</p>
+            <div className="space-y-3">
+              {analytics.departmentBreakdown.map((dept, i) => {
+                const max = Math.max(...analytics.departmentBreakdown.map((d) => d.count));
+                const pct = max > 0 ? (dept.count / max) * 100 : 0;
+                const DEPT_COLORS = ["#0d7377", "#e8722a", "#22c55e", "#6366f1", "#f59e0b", "#0a5c5f", "#c95d1b", "#8b5cf6", "#06b6d4", "#64748b"];
+                return (
+                  <div key={dept.department}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-slate-600">{dept.department}</span>
+                      <span className="text-xs font-bold text-slate-900">{dept.count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ delay: 0.85 + i * 0.05, duration: 0.6, ease: "easeOut" }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2 flex-wrap">
@@ -589,7 +671,14 @@ export default function Dashboard() {
                         <span>{(survey.metadata?.completionRate ?? 0).toFixed(0)}% finalización</span>
                       </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                      <button
+                        onClick={() => handleDuplicate(survey.id, survey.title)}
+                        disabled={duplicating === survey.id || deleting === survey.id}
+                        className="px-3 py-1 text-sm rounded-lg font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                      >
+                        {duplicating === survey.id ? "Duplicando..." : "Duplicar"}
+                      </button>
                       <Link href={`/survey/${survey.id}/edit`}>
                         <Button size="sm" variant="secondary">Editar</Button>
                       </Link>
@@ -599,6 +688,13 @@ export default function Dashboard() {
                       <Link href={`/survey/${survey.id}/results`}>
                         <Button size="sm" variant="primary">Resultados</Button>
                       </Link>
+                      <button
+                        onClick={() => handleDelete(survey.id, survey.title)}
+                        disabled={duplicating === survey.id || deleting === survey.id}
+                        className="px-3 py-1 text-sm rounded-lg font-medium border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                      >
+                        {deleting === survey.id ? "Eliminando..." : "Eliminar"}
+                      </button>
                     </div>
                   </div>
                 </motion.div>

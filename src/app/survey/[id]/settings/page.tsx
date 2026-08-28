@@ -9,20 +9,10 @@ import { Alert, showToast } from "@/components/Alert";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 
-interface DepartmentConfig {
-  id: string;
-  department: string;
-  responsible: { name: string; email: string };
-  sendSummary: boolean;
-  summaryFrequency: string;
-  sendOnCompletion: boolean;
-}
-
 interface Survey {
   id: string;
   title: string;
   isPublished: boolean;
-  departmentConfigs: DepartmentConfig[];
 }
 
 export default function SurveySettingsPage() {
@@ -33,14 +23,7 @@ export default function SurveySettingsPage() {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [surveyUrl, setSurveyUrl] = useState("");
-  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [newDepartment, setNewDepartment] = useState({
-    department: "",
-    responsibleEmail: "",
-    sendSummary: true,
-    summaryFrequency: "DAILY",
-  });
   const qrRef = useRef<HTMLDivElement>(null);
 
   function downloadQR() {
@@ -89,35 +72,6 @@ export default function SurveySettingsPage() {
       router.push("/dashboard");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleAddDepartment() {
-    if (!newDepartment.department || !newDepartment.responsibleEmail) {
-      showToast("Por favor completa todos los campos", "error");
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/surveys/${surveyId}/department-config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDepartment),
-      });
-
-      if (!response.ok) throw new Error("Failed to add department");
-
-      showToast("Departamento configurado", "success");
-      setNewDepartment({
-        department: "",
-        responsibleEmail: "",
-        sendSummary: true,
-        summaryFrequency: "DAILY",
-      });
-      setShowDepartmentModal(false);
-      await fetchSurvey();
-    } catch (error) {
-      showToast("Error al configurar departamento", "error");
     }
   }
 
@@ -229,158 +183,7 @@ export default function SurveySettingsPage() {
           </div>
         </motion.div>
 
-        {/* Department Configuration */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="rounded-lg border border-slate-200 bg-white p-6"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Configuración de Departamentos
-            </h2>
-            <Button onClick={() => setShowDepartmentModal(true)} size="sm">
-              + Agregar
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {survey.departmentConfigs.length === 0 ? (
-              <Alert
-                type="info"
-                title="Sin departamentos configurados"
-                message="Agrega departamentos para enviar reportes automáticos"
-              />
-            ) : (
-              survey.departmentConfigs.map((config) => (
-                <motion.div
-                  key={config.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="border border-slate-200 rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-slate-900">
-                        {config.department}
-                      </h3>
-                      <p className="text-sm text-slate-600 mt-1">
-                        Responsable: {config.responsible.name} ({config.responsible.email})
-                      </p>
-                      <div className="mt-2 flex gap-4 text-sm text-slate-600">
-                        {config.sendSummary && (
-                          <span>📧 Reportes: {config.summaryFrequency}</span>
-                        )}
-                        {config.sendOnCompletion && (
-                          <span>✓ Notificación al completar</span>
-                        )}
-                      </div>
-                    </div>
-                    <Button variant="danger" size="sm">
-                      Eliminar
-                    </Button>
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
-        </motion.div>
-
-
       </div>
-
-      {/* Add Department Modal */}
-      <Modal
-        isOpen={showDepartmentModal}
-        onClose={() => setShowDepartmentModal(false)}
-        title="Configurar Departamento"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
-              Nombre del Departamento
-            </label>
-            <input
-              type="text"
-              value={newDepartment.department}
-              onChange={(e) =>
-                setNewDepartment({ ...newDepartment, department: e.target.value })
-              }
-              placeholder="Ej: Recursos Humanos"
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
-              Email del Responsable
-            </label>
-            <input
-              type="email"
-              value={newDepartment.responsibleEmail}
-              onChange={(e) =>
-                setNewDepartment({
-                  ...newDepartment,
-                  responsibleEmail: e.target.value,
-                })
-              }
-              placeholder="responsable@company.com"
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="sendSummary"
-              checked={newDepartment.sendSummary}
-              onChange={(e) =>
-                setNewDepartment({ ...newDepartment, sendSummary: e.target.checked })
-              }
-            />
-            <label htmlFor="sendSummary" className="text-sm text-slate-900">
-              Enviar resumen de respuestas
-            </label>
-          </div>
-
-          {newDepartment.sendSummary && (
-            <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">
-                Frecuencia
-              </label>
-              <select
-                value={newDepartment.summaryFrequency}
-                onChange={(e) =>
-                  setNewDepartment({
-                    ...newDepartment,
-                    summaryFrequency: e.target.value,
-                  })
-                }
-                className="w-full rounded-lg border border-slate-300 px-4 py-2"
-              >
-                <option value="IMMEDIATELY">Inmediato</option>
-                <option value="DAILY">Diario</option>
-                <option value="WEEKLY">Semanal</option>
-                <option value="MONTHLY">Mensual</option>
-              </select>
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-4 border-t border-slate-200">
-            <Button
-              variant="secondary"
-              fullWidth
-              onClick={() => setShowDepartmentModal(false)}
-            >
-              Cancelar
-            </Button>
-            <Button fullWidth onClick={handleAddDepartment}>
-              Agregar
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Share Modal */}
       <Modal

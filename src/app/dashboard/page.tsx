@@ -545,6 +545,7 @@ export default function Dashboard() {
                       NUMBER: "Número",
                       PHONE: "Teléfono",
                       MATRIX: "Matriz",
+                      DEPARTMENT_SELECT: "Selección de Departamento",
                     };
                     return (
                       <div key={qt.type}>

@@ -117,6 +117,7 @@ enum QuestionType {
   DATE
   EMAIL
   NET_PROMOTER_SCORE // NPS
+  DEPARTMENT_SELECT
 }
 
 // Answer model - Individual answers to questions
@@ -182,8 +183,8 @@ model DepartmentConfig {
   survey            Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   
   department        String
-  responsibleId     String    @db.Uuid
-  responsible       User      @relation(fields: [responsibleId], references: [id])
+  responsibleId     String?   @db.Uuid
+  responsible       User?     @relation(fields: [responsibleId], references: [id], onDelete: SetNull)
   
   // Email settings
   sendSummary       Boolean   @default(true)

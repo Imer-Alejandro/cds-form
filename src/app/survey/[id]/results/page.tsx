@@ -89,7 +89,7 @@ function getQuestionAnalysis(question: Question, responses: Response[]) {
 
   const type = question.type;
 
-  if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX") {
+  if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "DEPARTMENT_SELECT") {
     const opts = parseOptions(question);
     const distribution: Record<string, number> = {};
     opts.forEach((o) => (distribution[o] = 0));
@@ -398,8 +398,8 @@ export default function SurveyResultsPage() {
                     <p className="text-sm text-slate-400 text-center py-8">Sin respuestas para esta pregunta</p>
                   ) : (
                     <>
-                      {/* MULTIPLE_CHOICE / CHECKBOX */}
-                      {(question.type === "MULTIPLE_CHOICE" || question.type === "CHECKBOX") && analysis.chartData && (
+                      {/* MULTIPLE_CHOICE / CHECKBOX / DEPARTMENT_SELECT */}
+                      {(question.type === "MULTIPLE_CHOICE" || question.type === "CHECKBOX" || question.type === "DEPARTMENT_SELECT") && analysis.chartData && (
                         <div className="grid gap-6 lg:grid-cols-2 items-center">
                           <ResponsiveContainer width="100%" height={Math.max(200, analysis.chartData.length * 40)}>
                             <BarChart data={analysis.chartData} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>

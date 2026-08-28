@@ -300,7 +300,7 @@ async function triggerCompletionEmails(surveyId: string) {
         type: "RATING",
         summary: `Promedio: ${ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "N/A"} de 5 estrellas`,
       });
-    } else if (question.type === "MULTIPLE_CHOICE") {
+    } else if (question.type === "MULTIPLE_CHOICE" || question.type === "DEPARTMENT_SELECT") {
       const counts: Record<string, number> = {};
       for (const a of questionAnswers) {
         if (a.value) counts[a.value] = (counts[a.value] || 0) + 1;

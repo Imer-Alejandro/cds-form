@@ -72,11 +72,6 @@ export default function RespondSurveyPage() {
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const responseIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
-  const deptRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    deptRef.current = new URLSearchParams(window.location.search).get("dept");
-  }, []);
 
   useEffect(() => {
     fetchSurvey();
@@ -104,11 +99,7 @@ export default function RespondSurveyPage() {
       fetch("/api/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          surveyId,
-          action: "start",
-          respondentDepartment: deptRef.current,
-        }),
+        body: JSON.stringify({ surveyId, action: "start" }),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -237,6 +228,9 @@ export default function RespondSurveyPage() {
             : undefined,
       }));
 
+      const deptQuestion = survey.questions.find((q: any) => q.type === "DEPARTMENT_SELECT");
+      const respondentDepartment = deptQuestion ? (answers[deptQuestion.id] || null) : null;
+
       const response = await fetch("/api/responses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,6 +238,7 @@ export default function RespondSurveyPage() {
           surveyId,
           responseId: responseIdRef.current,
           answers: formattedAnswers,
+          respondentDepartment,
         }),
       });
 
@@ -502,6 +497,25 @@ export default function RespondSurveyPage() {
                         autoFocus
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                       />
+                    </div>
+                  )}
+
+                  {currentQuestion.type === "DEPARTMENT_SELECT" && (
+                    <div className="max-w-md mx-auto space-y-3">
+                      <select
+                        value={answers[currentQuestion.id] || ""}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setAnswerAndAutoAdvance(currentQuestion.id, e.target.value);
+                          }
+                        }}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-5 py-3.5 text-slate-900 transition focus:border-[#0d7377] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0d7377]/10 appearance-none text-center font-medium"
+                      >
+                        <option value="" disabled>Selecciona tu departamento...</option>
+                        {currentQuestion.options?.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
 

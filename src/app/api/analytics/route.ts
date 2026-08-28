@@ -40,8 +40,7 @@ export async function GET(request: NextRequest) {
             respondentDepartment: true,
             answers: { select: { value: true, questionId: true } },
           },
-        },
-        departmentConfigs: true,
+        }
       },
     });
 

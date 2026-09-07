@@ -111,7 +111,28 @@ interface CustomTooltipProps {
     name?: string;
   }>;
   label?: ReactNode;
-  formatter?: (value: unknown) => ReactNode;
+  formatter?: (value: number) => ReactNode;
+}
+
+function renderTooltipValue(
+  value: unknown,
+  formatter?: (value: number) => ReactNode,
+): ReactNode {
+  if (formatter && typeof value === "number") {
+    return formatter(value);
+  }
+
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") return value;
+  if (typeof value === "boolean" || typeof value === "bigint" || typeof value === "symbol") {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function CustomTooltip({ active, payload, label, formatter }: CustomTooltipProps) {
@@ -122,7 +143,7 @@ function CustomTooltip({ active, payload, label, formatter }: CustomTooltipProps
       {payload.map((entry: { color?: string; fill?: string; value: unknown; name?: string }, i: number) => (
         <p key={i} className="text-sm font-semibold flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
-          {formatter ? formatter(entry.value) : entry.value}
+          {renderTooltipValue(entry.value, formatter)}
           <span className="text-xs font-normal text-slate-400">{entry.name}</span>
         </p>
       ))}
@@ -650,12 +671,12 @@ export default function Dashboard() {
                 <span className="text-3xl mb-3">🔒</span>
                 <p className="text-sm font-semibold text-slate-700">Datos ocultos hasta completar la participación</p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                  No se muestran los conteos por departamento para que no se pueda identificar quién ha respondido o quién falta. Al alcanzar el umbral de participación verás cada departamento, con los de menos de 5 empleados agrupados como "General".
+                  No se muestran los conteos por departamento para que no se pueda identificar quién ha respondido o quién falta. Al alcanzar el umbral de participación verás cada departamento, con los de menos de 5 empleados agrupados como General.
                 </p>
               </div>
             ) : (
               <>
-                <p className="text-xs text-slate-400 mb-5">Departamentos con menos de 5 empleados o menos de 5 respuestas se agrupan como "General"</p>
+                <p className="text-xs text-slate-400 mb-5">Departamentos con menos de 5 empleados o menos de 5 respuestas se agrupan como General</p>
                 <div className="space-y-3">
                   {analytics.departmentBreakdown.map((dept, i) => {
                     const max = Math.max(...analytics.departmentBreakdown.map((d) => d.count));

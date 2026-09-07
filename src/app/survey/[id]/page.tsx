@@ -65,6 +65,7 @@ export default function RespondSurveyPage() {
   const [submitted, setSubmitted] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
   const [direction, setDirection] = useState(1);
   const [wentBack, setWentBack] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
@@ -520,20 +521,37 @@ export default function RespondSurveyPage() {
                   )}
 
                   {currentQuestion.type === "RATING" && (
-                    <div className="flex items-center gap-3 justify-center py-4">
-                      {Array.from({ length: currentQuestion.maxValue || 5 }).map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, i + 1)}
-                          className={`text-4xl transition-all duration-100 ${
-                            answers[currentQuestion.id] === i + 1
-                              ? "text-amber-400 scale-125 drop-shadow-md"
-                              : "text-slate-200 hover:text-amber-200 hover:scale-110"
-                          }`}
-                        >
-                          ★
-                        </button>
-                      ))}
+                    <div
+                      className="flex items-center gap-3 justify-center py-4"
+                      onMouseLeave={() => setHoveredStar(null)}
+                    >
+                      {Array.from({ length: currentQuestion.maxValue || 5 }).map((_, i) => {
+                        const value = i + 1;
+                        const filled = value <= (hoveredStar ?? answers[currentQuestion.id] ?? 0);
+                        const isSelected = answers[currentQuestion.id] === value;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseEnter={() => setHoveredStar(value)}
+                            onClick={() => setAnswerAndAutoAdvance(currentQuestion.id, value)}
+                            className={`text-4xl transition-all duration-100 ${
+                              filled
+                                ? "text-amber-400"
+                                : "text-slate-200"
+                            } ${
+                              isSelected
+                                ? "scale-125 drop-shadow-md"
+                                : filled
+                                  ? "scale-110"
+                                  : ""
+                            }`}
+                            aria-label={`${value} de ${currentQuestion.maxValue || 5} estrellas`}
+                          >
+                            ★
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 

@@ -305,6 +305,76 @@ export default function SurveyResultsPage() {
 
   const totalResp = survey.metadata.totalResponses;
 
+  const hasDeptQuestion = survey.questions.some((q) => q.type === "DEPARTMENT_SELECT");
+  const threshold = survey.participationThreshold ?? 100;
+  const completedForThreshold = Math.min(survey.metadata.completedResponses, TOTAL_EMPLOYEES);
+  const percentCompleted = hasDeptQuestion ? Math.round((completedForThreshold / TOTAL_EMPLOYEES) * 100) : 100;
+  const resultsLocked = hasDeptQuestion && percentCompleted < threshold;
+  const missing = TOTAL_EMPLOYEES - completedForThreshold;
+
+  if (resultsLocked) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-6">
+        <div className="mx-auto max-w-xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-900/5 text-center"
+          >
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
+              🔒
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900">{survey.title}</h1>
+            <p className="mt-1 text-sm text-slate-500">Resultados</p>
+
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50/80 p-5 text-left">
+              <p className="text-sm font-semibold text-slate-800">
+                Resultados bloqueados por umbral de participación
+              </p>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Los resultados de esta encuesta se desbloquean al alcanzar el{" "}
+                <span className="font-bold text-slate-700">{threshold}%</span> de participación.
+                Actualmente llevas un <span className="font-bold text-slate-700">{percentCompleted}%</span>.
+              </p>
+
+              <div className="mt-5 flex items-center justify-between text-sm">
+                <span className="text-xs font-semibold text-slate-500 tabular-nums">
+                  {completedForThreshold} de {TOTAL_EMPLOYEES} empleados
+                </span>
+                <span className="text-xs font-semibold text-amber-600 tabular-nums">
+                  Faltan {missing}
+                </span>
+              </div>
+              <div className="mt-2 h-3 rounded-full bg-slate-100 overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-[#0d7377] to-emerald-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.max(2, percentCompleted)}%` }}
+                  transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
+                />
+              </div>
+
+              <p className="mt-4 text-xs text-slate-400 leading-relaxed">
+                Este bloqueo evita identificar quién ha respondido o quién falta. Al alcanzar el{" "}
+                {threshold}% de participación, las respuestas completadas y los análisis se mostrarán
+                automáticamente.
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/dashboard")}>
+                Ir al dashboard
+              </Button>
+              <Button variant="primary" onClick={() => router.push(`/survey/${surveyId}/settings`)}>
+                Compartir encuesta
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-6">
       <div className="mx-auto max-w-7xl space-y-8">

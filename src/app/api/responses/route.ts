@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildExecutiveSummaryEmail, sendEmail } from "@/lib/email";
-import { verifyJWT, canViewSurvey } from "@/lib/auth";
+import { verifyJWT, canViewSurvey, getSessionFromRequest } from "@/lib/auth";
 import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
+import { TOTAL_EMPLOYEES } from "@/lib/departments";
 
 async function authorizeSurveyView(request: NextRequest, surveyId: string) {
   const sessionCookie = request.cookies.get("sdc_session")?.value;
   const session = sessionCookie ? await verifyJWT(sessionCookie) : null;
   const survey = await prisma.survey.findUnique({
     where: { id: surveyId },
-    include: { departmentConfigs: true },
+    include: { departmentConfigs: true, questions: { select: { id: true, type: true } } },
   });
-  if (!survey) return { authorized: false, status: 404, error: "Encuesta no encontrada" };
+  if (!survey) return { authorized: false, status: 404, error: "Encuesta no encontrada" } as const;
   if (!canViewSurvey(session, survey)) {
-    return { authorized: false, status: 403, error: "No autorizado" };
+    return { authorized: false, status: 403, error: "No autorizado" } as const;
   }
   return { authorized: true, survey } as const;
 }
@@ -224,6 +225,32 @@ export async function GET(request: NextRequest) {
     const access = await authorizeSurveyView(request, surveyId);
     if (!access.authorized) {
       return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+
+    // Bloquear la lectura de respuestas hasta alcanzar el umbral de participación
+    // (solo para sesiones autenticadas; los respondientes públicos consultan su propio estado)
+    const session = await getSessionFromRequest(request);
+    const hasDeptQuestion = access.survey.questions.some((q: any) => q.type === "DEPARTMENT_SELECT");
+    if (session && hasDeptQuestion) {
+      const completed = await prisma.response.count({
+        where: { surveyId, status: "COMPLETED" },
+      });
+      const threshold = access.survey.participationThreshold ?? 100;
+      const percent = Math.round((Math.min(completed, TOTAL_EMPLOYEES) / TOTAL_EMPLOYEES) * 100);
+      if (percent < threshold) {
+        const missing = TOTAL_EMPLOYEES - Math.min(completed, TOTAL_EMPLOYEES);
+        return NextResponse.json(
+          {
+            error:
+              "Los resultados están bloqueados hasta alcanzar el umbral de participación",
+            locked: true,
+            percent,
+            threshold,
+            missing,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const where: any = { surveyId };

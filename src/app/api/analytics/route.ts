@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
+import { TOTAL_EMPLOYEES, isPrivateDepartment } from "@/lib/departments";
 
 const MIN_DEPT_RESPONSES = 5;
 
-function anonymizeDepartment(dept: string | null, counts: Record<string, number>): string {
+function departmentLabel(dept: string | null, count: number): string {
   if (!dept) return "Sin departamento";
-  return (counts[dept] || 0) >= MIN_DEPT_RESPONSES ? dept : "General";
+  if (isPrivateDepartment(dept) || count < MIN_DEPT_RESPONSES) return "General";
+  return dept;
 }
 
 export async function GET(request: NextRequest) {
@@ -160,23 +162,60 @@ export async function GET(request: NextRequest) {
       count: q._count,
     }));
 
-    // Department breakdown with anonymity for small departments
-    const allResponses = surveys.flatMap((s: any) => s.responses);
-    const rawDeptCounts: Record<string, number> = {};
-    for (const resp of allResponses) {
-      const dept = resp.respondentDepartment || null;
-      const key = dept || "__none__";
-      rawDeptCounts[key] = (rawDeptCounts[key] || 0) + 1;
+    // Participation (completion) vs known headcount — only for surveys with a DEPARTMENT_SELECT question
+    // Each survey can define its own reveal threshold; results stay hidden until that threshold is met.
+    const participationBySurvey = surveys.map((s: any) => {
+      const hasDeptQuestion = s.questions.some((q: any) => q.type === "DEPARTMENT_SELECT");
+      const completed = s.responses.filter((r: any) => r.status === "COMPLETED").length;
+      const threshold = s.participationThreshold ?? 100;
+      const expected = hasDeptQuestion ? TOTAL_EMPLOYEES : 0;
+      const percentForSurvey = expected > 0 ? Math.round((completed / expected) * 100) : 0;
+      return {
+        id: s.id,
+        title: s.title,
+        hasDeptQuestion,
+        completed,
+        expected,
+        threshold,
+        percent: percentForSurvey,
+        locked: expected > 0 && percentForSurvey < threshold,
+      };
+    });
+
+    const expectedTotal = participationBySurvey.reduce((a, c) => a + c.expected, 0);
+    const completedTotal = Math.min(
+      participationBySurvey.reduce((a, c) => a + c.completed, 0),
+      expectedTotal
+    );
+    const percent = expectedTotal > 0 ? Math.round((completedTotal / expectedTotal) * 100) : 0;
+    const deptParticipation = participationBySurvey.filter((p) => p.hasDeptQuestion);
+    const locked =
+      deptParticipation.every((p) => p.threshold === 100) && expectedTotal > 0 && completedTotal < expectedTotal
+        ? true
+        : deptParticipation.some((p) => p.locked);
+
+    // Department breakdown with anonymity rules.
+    // Hidden entirely until 100% participation; then departments with <5 employees OR <5 responses are merged into "General".
+    let departmentBreakdown: { department: string; count: number }[] = [];
+    const completedResponses = surveys.flatMap((s: any) => s.responses).filter((r: any) => r.status === "COMPLETED");
+
+    if (!locked) {
+      const rawDeptCounts: Record<string, number> = {};
+      for (const resp of completedResponses) {
+        const dept = resp.respondentDepartment?.trim() || null;
+        const key = dept || "__none__";
+        rawDeptCounts[key] = (rawDeptCounts[key] || 0) + 1;
+      }
+      const deptCounts: Record<string, number> = {};
+      for (const [key, count] of Object.entries(rawDeptCounts)) {
+        const dept = key === "__none__" ? null : key;
+        const label = departmentLabel(dept, count);
+        deptCounts[label] = (deptCounts[label] || 0) + count;
+      }
+      departmentBreakdown = Object.entries(deptCounts)
+        .map(([department, count]) => ({ department, count }))
+        .sort((a, b) => b.count - a.count);
     }
-    const deptCounts: Record<string, number> = {};
-    for (const [key, count] of Object.entries(rawDeptCounts)) {
-      const dept = key === "__none__" ? null : key;
-      const label = anonymizeDepartment(dept, rawDeptCounts);
-      deptCounts[label] = (deptCounts[label] || 0) + count;
-    }
-    const departmentBreakdown = Object.entries(deptCounts)
-      .map(([department, count]) => ({ department, count }))
-      .sort((a, b) => b.count - a.count);
 
     // Per-question averages (only when a specific survey is requested)
     let questionAverages: { questionId: string; title: string; type: string; avg: number; count: number }[] = [];
@@ -209,7 +248,12 @@ export async function GET(request: NextRequest) {
       timeline,
       statusCounts,
       questionTypeDist,
+      completion: expectedTotal > 0
+        ? { expectedTotal, completedTotal, missing: expectedTotal - completedTotal, percent, locked }
+        : null,
+      participation: participationBySurvey.filter((p) => p.hasDeptQuestion),
       departmentBreakdown,
+      departmentLocked: locked,
       questionAverages,
     });
   } catch (error) {

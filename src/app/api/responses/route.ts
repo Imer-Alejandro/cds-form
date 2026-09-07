@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildExecutiveSummaryEmail, sendEmail } from "@/lib/email";
 import { verifyJWT, canViewSurvey } from "@/lib/auth";
+import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 
 async function authorizeSurveyView(request: NextRequest, surveyId: string) {
   const sessionCookie = request.cookies.get("sdc_session")?.value;
@@ -20,6 +21,14 @@ async function authorizeSurveyView(request: NextRequest, surveyId: string) {
 // POST /api/responses - Create or submit a survey response
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    if (!rateLimit(ipKey(ip, "responses"), 30, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiadas respuestas. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { surveyId, respondentId, respondentEmail, respondentName, respondentDepartment, answers, action } = body;
 

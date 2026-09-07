@@ -24,6 +24,7 @@ import {
   PolarRadiusAxis,
 } from "recharts";
 import * as XLSX from "xlsx";
+import { TOTAL_EMPLOYEES } from "@/lib/departments";
 
 interface Question {
   id: string;
@@ -61,6 +62,7 @@ interface SurveyResult {
   id: string;
   title: string;
   description?: string;
+  participationThreshold?: number;
   metadata: {
     totalResponses: number;
     completedResponses: number;
@@ -341,6 +343,59 @@ export default function SurveyResultsPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Participation */}
+        {survey.questions.some((q) => q.type === "DEPARTMENT_SELECT") && (
+          (() => {
+            const completed = Math.min(survey.metadata.completedResponses, TOTAL_EMPLOYEES);
+            const percent = Math.round((completed / TOTAL_EMPLOYEES) * 100);
+            const missing = TOTAL_EMPLOYEES - completed;
+            const threshold = survey.participationThreshold ?? 100;
+            const locked = percent < threshold;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className={`rounded-2xl bg-white p-6 shadow-sm ring-1 ${locked ? "ring-slate-900/5" : "ring-emerald-500/20"}`}
+              >
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{locked ? "🔒" : "✅"}</span>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Participación</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {locked
+                          ? `El análisis por departamento se activa al alcanzar el ${threshold}% de participación`
+                          : "Participación completa — análisis por departamento disponible"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-extrabold text-slate-900 tabular-nums">{percent}%</span>
+                    <p className="text-xs text-slate-500 mt-0.5 tabular-nums">{completed} de {TOTAL_EMPLOYEES} empleados</p>
+                    {locked && (
+                      <p className="text-xs font-semibold text-amber-600 mt-0.5 tabular-nums">Faltan {missing}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="h-3 rounded-full bg-slate-100 overflow-hidden mt-5">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-[#0d7377] to-emerald-400"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percent}%` }}
+                    transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
+                  />
+                </div>
+                {locked && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Para no identificar quién ha respondido o quién falta, los conteos por departamento permanecen ocultos. Al alcanzar el {threshold}% de participación, los departamentos con menos de 5 empleados se agruparán como "General".
+                  </p>
+                )}
+              </motion.div>
+            );
+          })()
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 border-b border-slate-200">

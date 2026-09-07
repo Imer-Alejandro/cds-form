@@ -23,6 +23,7 @@ Una plataforma completa para crear, distribuir y analizar encuestas de satisfacc
 - Net Promoter Score (NPS)
 - Fecha
 - Email
+- Selección de Departamento
 
 ## 🛠️ Stack Tecnológico
 
@@ -60,12 +61,12 @@ npm install
 Crea `.env.local` con:
 ```env
 DATABASE_URL="postgresql://cdsForm:kRtvhlliS9mhBpx2qVWm_Q@rodriguez-db-13693.7tt.aws-us-east-1.cockroachlabs.cloud:26257/DBCdsForm?sslmode=verify-full"
-NEXTAUTH_SECRET="tu-clave-secreta-aqui"
+AUTH_SECRET="tu-clave-secreta-aqui"
 SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
 SMTP_USER="tu-email@gmail.com"
 SMTP_PASSWORD="tu-contraseña-app"
-NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 ```
 
 4. **Configura la base de datos**
@@ -96,17 +97,20 @@ http://localhost:3000
 src/
 ├── app/
 │   ├── api/                      # API Routes
+│   │   ├── auth/                 # Autenticación (login, register, magic link, reset)
 │   │   ├── surveys/              # CRUD de encuestas
 │   │   ├── responses/            # Gestión de respuestas
+│   │   ├── analytics/            # Analíticas agregadas
 │   │   ├── email/                # Notificaciones por email
-│   │   └── users/                # Gestión de usuarios
+│   │   └── settings/smtp/        # Configuración SMTP
 │   ├── dashboard/                # Panel de control
 │   ├── survey/
 │   │   ├── new/                  # Crear nueva encuesta
 │   │   ├── [id]/
 │   │   │   ├── page.tsx          # Responder encuesta
 │   │   │   ├── edit/             # Editar encuesta
-│   │   │   └── results/          # Ver resultados
+│   │   │   ├── results/          # Ver resultados
+│   │   │   └── settings/         # Configuración y compartir
 │   │   └── ...
 │   ├── layout.tsx
 │   ├── page.tsx                  # Home
@@ -118,9 +122,12 @@ src/
 │   ├── Loading.tsx
 │   └── Alert.tsx
 ├── lib/
+│   ├── auth.ts                   # JWT, hashing, ACL
 │   ├── prisma.ts                 # Cliente Prisma
 │   ├── email.ts                  # Servicio de email
 │   ├── types.ts                  # Tipos TypeScript
+│   ├── departments.ts            # Reglas de departamentos
+│   ├── rate-limit.ts             # Rate limiting en memoria
 │   └── utils.ts                  # Funciones auxiliares
 └── prisma/
     └── schema.prisma             # Esquema de base de datos
@@ -169,14 +176,35 @@ src/
 - `DELETE /api/surveys/[id]` - Eliminar
 - `GET /api/surveys/[id]/questions` - Listar preguntas
 - `POST /api/surveys/[id]/questions` - Agregar pregunta
+- `PUT /api/surveys/[id]/questions?questionId=` - Editar pregunta
+- `DELETE /api/surveys/[id]/questions?questionId=` - Eliminar pregunta
+- `PATCH /api/surveys/[id]/questions` - Reordenar preguntas
+- `POST /api/surveys/[id]/duplicate` - Duplicar encuesta
+
+### Autenticación
+- `POST /api/auth/login` - Iniciar sesión con contraseña
+- `POST /api/auth/send-link` - Enviar enlace mágico
+- `GET /api/auth/verify` - Verificar enlace mágico
+- `POST /api/auth/register` - Crear cuenta desde token
+- `POST /api/auth/reset-password` - Solicitar/confirmar reset de contraseña
+- `GET /api/auth/reset-password` - Validar enlace de reset
+- `GET /api/auth/session` - Consultar sesión
+- `POST /api/auth/logout` - Cerrar sesión
 
 ### Respuestas
 - `POST /api/responses` - Enviar respuesta
 - `GET /api/responses` - Listar respuestas (con filtros)
 
+### Analíticas
+- `GET /api/analytics` - Estadísticas agregadas de una encuesta
+
 ### Email
 - `POST /api/email/send-invitation` - Enviar invitaciones
 - `POST /api/email/send-summary` - Enviar resumen de resultados
+- `POST /api/email/test` - Enviar correo de prueba
+
+### Configuración
+- `GET/POST /api/settings/smtp` - Configurar servidor SMTP (solo ADMIN)
 
 ## 🎨 UI/UX
 
@@ -188,16 +216,18 @@ src/
 
 ## 🔐 Seguridad
 
-- Validación de entrada en cliente y servidor
-- Protección CSRF (implementar)
-- Rate limiting (implementar)
-- Autenticación JWT (implementar con NextAuth)
-- Encriptación de datos sensibles
+- ✅ Autenticación JWT propia (cookie HttpOnly, SameSite=Lax)
+- ✅ Validación de entrada en cliente y servidor
+- ✅ Contraseñas hasheadas con PBKDF2-SHA512 (100k iteraciones)
+- ✅ Restricción de dominios corporativos en registro
+- ✅ Control de acceso por encuesta (solo creador)
+- ✅ Anonimato de departamentos con menos de 5 respuestas
+- ✅ Protección CSRF (validación de origen en endpoints de mutación)
+- ✅ Rate limiting en rutas de autenticación y envío de respuestas
+- ✅ Reset de contraseña seguro vía token de un solo uso (15 min)
 
 ## 📈 Próximas Mejoras
 
-- [ ] Autenticación con NextAuth.js
-- [ ] Edición y eliminación de preguntas
 - [ ] Edición de respuestas iniciadas
 - [ ] Exportación de datos (CSV, PDF)
 - [ ] Lógica condicional en preguntas
@@ -248,4 +278,4 @@ Este proyecto es propietario de CDS.
 ---
 
 **Versión**: 0.1.0  
-**Última actualización**: 2024-12-21
+**Última actualización**: 2026-09-07

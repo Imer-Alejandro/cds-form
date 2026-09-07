@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { getSessionFromRequest, canManageSurvey, isAllowedOrigin } from "@/lib/auth";
+import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 
 // POST /api/email/send-invitation - Send survey invitations
 export async function POST(request: NextRequest) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
+    const ip = getClientIp(request);
+    if (!rateLimit(ipKey(ip, "send-invitation"), 20, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiadas invitaciones. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { surveyId, emails } = body;
 
@@ -21,6 +40,10 @@ export async function POST(request: NextRequest) {
 
     if (!survey) {
       return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+    }
+
+    if (!canManageSurvey(session, survey)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
     const port = parseInt(process.env.PORT || "3000", 10);

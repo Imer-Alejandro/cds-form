@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SDC Form - Sistema de Encuestas de Satisfacción
 
-## Getting Started
+Plataforma corporativa para crear, distribuir y analizar encuestas de satisfacción. Similar a Typeform pero optimizada para uso interno en organizaciones.
 
-First, run the development server:
+## Características
+
+- **Creador de Encuestas**: 10 tipos de preguntas (texto, opción múltiple, rating, escala, NPS, fecha, email, departamento, etc.)
+- **Dashboard con analíticas**: gráficos en tiempo real, tasa de finalización, sentimiento, NPS y comparativas
+- **Respuestas tipo Typeform**: una pregunta a la vez, con barra de progreso y animaciones
+- **Distribución**: enlace público, QR e invitaciones por email
+- **Privacidad por departamento**: reglas de anonimato y umbral de participación configurable
+- **Reportes por email**: resúmenes ejecutivos automáticos a responsables de área
+- **Autenticación**: JWT propio con login por contraseña y enlace mágico
+
+## Requisitos
+
+- Node.js 18+
+- CockroachDB (PostgreSQL compatible)
+- Credenciales SMTP para el envío de correos
+
+## Inicio rápido
 
 ```bash
+npm install
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed       # (opcional) datos de ejemplo
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copia `.env.local`:
 
-## Learn More
+```env
+DATABASE_URL="postgresql://usuario:password@host:26257/db?sslmode=verify-full"
+AUTH_SECRET="genera-una-clave-secreta-fuerte"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER="tu-email@gmail.com"
+SMTP_PASSWORD="tu-contraseña-app"
+```
 
-To learn more about Next.js, take a look at the following resources:
+> **Producción**: configura `AUTH_SECRET` con un valor aleatorio y seguro, y `NEXT_PUBLIC_BASE_URL` con la URL pública.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev              # Desarrollo con hot reload
+npm run build            # Build de producción (prisma generate + next build)
+npm start                # Servir build de producción
+npm run lint             # ESLint
+npm run prisma:migrate   # Crear migración Prisma
+npm run db:push          # Sincronizar esquema sin migración
+```
 
-## Deploy on Vercel
+## Documentación
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [GETTING_STARTED.md](GETTING_STARTED.md) — guía de implementación
+- [DEVELOPMENT.md](DEVELOPMENT.md) — documentación técnica completa
+- [QUICKSTART.md](QUICKSTART.md) — setup en 5 minutos
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Stack
+
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Prisma · CockroachDB · Nodemailer · Recharts · Framer Motion
+
+© CDS Business Corporation

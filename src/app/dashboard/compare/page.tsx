@@ -51,6 +51,7 @@ interface AnalyticsData {
     score: number;
   };
   departmentBreakdown: { department: string; count: number }[];
+  departmentLocked?: boolean;
   questionTypeDist: { type: string; count: number }[];
   questionAverages: QuestionAvg[];
 }
@@ -300,22 +301,32 @@ export default function ComparePage() {
             </div>
 
             {/* Department Comparison */}
-            {deptData.length > 0 && (
+            {(deptData.length > 0 || dataA?.departmentLocked || dataB?.departmentLocked) && (
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                 className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5">
                 <h2 className="text-sm font-bold text-slate-900 mb-1">Respuestas por Departamento</h2>
-                <p className="text-xs text-slate-400 mb-5">Participación por área</p>
-                <ResponsiveContainer width="100%" height={Math.max(200, deptData.length * 36)}>
-                  <BarChart data={deptData} layout="vertical" barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" tick={{ fontSize: 12, fill: "#64748b" }} />
-                    <YAxis type="category" dataKey="department" width={120} tick={{ fontSize: 11, fill: "#64748b" }} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
-                    <Legend />
-                    <Bar dataKey="A" name={satA?.title?.substring(0, 15) || "A"} fill={TEAL} radius={[0, 6, 6, 0]} />
-                    <Bar dataKey="B" name={satB?.title?.substring(0, 15) || "B"} fill={ORANGE} radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {(dataA?.departmentLocked || dataB?.departmentLocked) ? (
+                  <p className="text-xs text-slate-500 mt-4 py-6 text-center">
+                    🔒 Los conteos por departamento están ocultos hasta que cada encuesta alcanza su umbral de participación
+                    {(dataA?.departmentLocked ? ` (Encuesta A: ${dataA.satisfactionBySurvey?.[0]?.completedResponses ?? 0} completadas)` : "")}
+                    {(dataB?.departmentLocked ? ` · Encuesta B: ${dataB.satisfactionBySurvey?.[0]?.completedResponses ?? 0} completadas` : "")}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-slate-400 mb-5">Participación por área</p>
+                    <ResponsiveContainer width="100%" height={Math.max(200, deptData.length * 36)}>
+                      <BarChart data={deptData} layout="vertical" barGap={4}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis type="number" tick={{ fontSize: 12, fill: "#64748b" }} />
+                        <YAxis type="category" dataKey="department" width={120} tick={{ fontSize: 11, fill: "#64748b" }} />
+                        <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
+                        <Legend />
+                        <Bar dataKey="A" name={satA?.title?.substring(0, 15) || "A"} fill={TEAL} radius={[0, 6, 6, 0]} />
+                        <Bar dataKey="B" name={satB?.title?.substring(0, 15) || "B"} fill={ORANGE} radius={[0, 6, 6, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </>
+                )}
               </motion.div>
             )}
 

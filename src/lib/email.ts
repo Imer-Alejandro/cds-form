@@ -1,7 +1,15 @@
 import nodemailer from "nodemailer";
 import { prisma } from "./prisma";
 
+// Module-level cache so SMTP config changes (via resetTransporter) take effect immediately
+let cachedTransporter: nodemailer.Transporter | null = null;
+let cachedFromAddress: string | null = null;
+
 async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; fromAddress: string }> {
+  if (cachedTransporter && cachedFromAddress) {
+    return { transporter: cachedTransporter, fromAddress: cachedFromAddress };
+  }
+
   try {
     const smtpConfig = await prisma.sMTPConfig.findFirst({
       where: { isActive: true },
@@ -9,38 +17,39 @@ async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; 
     });
 
     if (smtpConfig) {
-      return {
-        transporter: nodemailer.createTransport({
-          host: smtpConfig.host,
-          port: smtpConfig.port,
-          secure: smtpConfig.secure,
-          auth: { user: smtpConfig.user, pass: smtpConfig.password },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 10000,
-        }),
-        fromAddress: `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`,
-      };
+      cachedTransporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: smtpConfig.port,
+        secure: smtpConfig.secure,
+        auth: { user: smtpConfig.user, pass: smtpConfig.password },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+      });
+      cachedFromAddress = `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`;
+      return { transporter: cachedTransporter, fromAddress: cachedFromAddress };
     }
   } catch (error) {
     console.error("Failed to load SMTP config from DB:", error);
   }
 
-  return {
-    transporter: nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_PORT === "465",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    }),
-    fromAddress: process.env.SMTP_USER || "no-reply@example.com",
-  };
+  cachedTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_PORT === "465",
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  });
+  cachedFromAddress = process.env.SMTP_USER || "no-reply@example.com";
+  return { transporter: cachedTransporter, fromAddress: cachedFromAddress };
 }
 
-export function resetTransporter() {}
+export function resetTransporter() {
+  cachedTransporter = null;
+  cachedFromAddress = null;
+}
 
 export interface EmailOptions {
   to: string;

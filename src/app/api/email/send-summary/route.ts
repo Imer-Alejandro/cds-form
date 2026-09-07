@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildExecutiveSummaryEmail, sendEmail } from "@/lib/email";
+import { getSessionFromRequest, canManageSurvey, isAllowedOrigin } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { surveyId } = await request.json();
 
     if (!surveyId) {
@@ -24,6 +34,10 @@ export async function POST(request: NextRequest) {
 
     if (!survey) {
       return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+    }
+
+    if (!canManageSurvey(session, survey)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
     const responses = await prisma.response.findMany({

@@ -89,7 +89,7 @@ Abre en tu navegador: **http://localhost:3000**
 7. **💯 NPS** - Net Promoter Score (0-10)
 8. **📅 Fecha** - Selector de fecha
 9. **📧 Email** - Validación email
-10. **Más tipos** - Extendibles
+10. **🏢 Departamento** - Selección de departamento corporativo
 
 ## 🔧 Configuración de Email
 
@@ -172,13 +172,14 @@ npm run lint             # Verifica código
 
 ## 🎯 Próximas Mejoras (Opcional)
 
-- [ ] Autenticación de usuarios (NextAuth.js)
 - [ ] Editar respuestas en progreso
 - [ ] Exportar datos a CSV/PDF
 - [ ] Preguntas condicionales (if/then)
 - [ ] Temas personalizables
 - [ ] Plantillas reutilizables
 - [ ] Integración con Slack/Teams
+- [ ] Análisis avanzado con IA
+- [ ] Multi-idioma
 
 ## 🐛 Solución de Problemas
 
@@ -231,17 +232,17 @@ sdc-form/
 └── README.md
 ```
 
-## 🔐 Seguridad (Notas)
+## 🔐 Seguridad
 
 Actualmente:
+- ✅ Autenticación JWT propia (cookie HttpOnly + SameSite=Lax)
 - ✅ Validación en cliente y servidor
 - ✅ TypeScript tipado
-- ✅ Variables de entorno seguros
-- ⚠️ **Falta**: Autenticación de usuarios
-- ⚠️ **Falta**: Protección CSRF
-- ⚠️ **Falta**: Rate limiting
-
-Para producción, implementa NextAuth.js para autenticación.
+- ✅ Variables de entorno seguras
+- ✅ Reset de contraseña con token por email
+- ✅ Protección CSRF (validación de origen)
+- ✅ Rate limiting en auth y envío de respuestas
+- ✅ Anonimato de departamentos con pocas respuestas
 
 ## 📈 Escalabilidad
 
@@ -321,4 +322,4 @@ Abre: **http://localhost:3000**
 
 **Versión**: 0.1.0  
 **Estado**: ✅ Completado  
-**Última actualización**: 2024-12-21
+**Última actualización**: 2026-09-07

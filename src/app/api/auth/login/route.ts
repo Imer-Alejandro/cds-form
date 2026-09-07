@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { signJWT, verifyPassword } from "@/lib/auth";
+import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    if (!rateLimit(ipKey(ip, "login"), 10, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const email = (body.email || "").toLowerCase().trim();
     const password = (body.password || "").toString();

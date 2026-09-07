@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { generateMagicToken } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { getBaseUrl } from "@/lib/utils";
+import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 
 const ALLOWED_DOMAINS = ["sanchezbusinesscorp.com", "kexford.com", "jsanchezcomercial.com"];
 
@@ -13,6 +14,14 @@ function isAllowedDomain(email: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    if (!rateLimit(ipKey(ip, "send-link"), 5, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const email = (body.email || "").toLowerCase().trim();
     const mode = (body.mode || "login").toString();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/Button";
@@ -56,6 +56,14 @@ interface Analytics {
   timeline: { date: string; responses: number }[];
   statusCounts: { DRAFT: number; PUBLISHED: number; ARCHIVED: number; CLOSED: number };
   questionTypeDist: { type: string; count: number }[];
+  completion: {
+    expectedTotal: number;
+    completedTotal: number;
+    missing: number;
+    percent: number;
+    locked: boolean;
+  } | null;
+  departmentLocked?: boolean;
   departmentBreakdown: { department: string; count: number }[];
 }
 
@@ -94,12 +102,24 @@ function AnimatedCounter({ value, suffix = "" }: { value: number | string; suffi
   return <span>{display}{suffix}</span>;
 }
 
-function CustomTooltip({ active, payload, label, formatter }: any) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    color?: string;
+    fill?: string;
+    value: unknown;
+    name?: string;
+  }>;
+  label?: ReactNode;
+  formatter?: (value: unknown) => ReactNode;
+}
+
+function CustomTooltip({ active, payload, label, formatter }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl bg-slate-900/95 px-4 py-3 text-white shadow-2xl backdrop-blur-sm border border-white/10">
       {label && <p className="text-xs font-medium text-slate-300 mb-1">{label}</p>}
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: { color?: string; fill?: string; value: unknown; name?: string }, i: number) => (
         <p key={i} className="text-sm font-semibold flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
           {formatter ? formatter(entry.value) : entry.value}
@@ -284,6 +304,52 @@ export default function Dashboard() {
             </motion.div>
           ))}
         </div>
+
+        {/* Participation */}
+        {analytics?.completion && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className={`rounded-2xl bg-white p-6 shadow-sm ring-1 ${analytics.completion.locked ? "ring-slate-900/5" : "ring-emerald-500/20"}`}
+          >
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                {analytics.completion.locked ? (
+                  <span className="text-xl">🔒</span>
+                ) : (
+                  <span className="text-xl">✅</span>
+                )}
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Participación</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {analytics.completion.locked
+                      ? "Los resultados por departamento se muestran al alcanzar el umbral de participación"
+                      : "Participación completa — análisis por departamento disponible"}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-3xl font-extrabold text-slate-900 tabular-nums">{analytics.completion.percent}%</span>
+                <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                  {analytics.completion.completedTotal} de {analytics.completion.expectedTotal} empleados
+                </p>
+              </div>
+            </div>
+            <div className="h-3 rounded-full bg-slate-100 overflow-hidden mt-5">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-[#0d7377] to-emerald-400"
+                initial={{ width: 0 }}
+                animate={{ width: `${analytics.completion.percent}%` }}
+                transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
+              />
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Falta respuesta de <span className="font-bold text-slate-700">{analytics.completion.missing}</span>{" "}
+              {analytics.completion.missing === 1 ? "empleado" : "empleados"} de {analytics.completion.expectedTotal}
+            </p>
+          </motion.div>
+        )}
 
         {/* Charts Row 1 */}
         {analytics && (
@@ -571,7 +637,7 @@ export default function Dashboard() {
         )}
 
         {/* Department Breakdown */}
-        {analytics && analytics.departmentBreakdown && analytics.departmentBreakdown.length > 0 && (
+        {analytics && analytics.completion && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -579,31 +645,43 @@ export default function Dashboard() {
             className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5"
           >
             <h2 className="text-sm font-bold text-slate-900 mb-1">Respuestas por Departamento</h2>
-            <p className="text-xs text-slate-400 mb-5">Departamentos con menos de 5 respuestas se agrupan como "General"</p>
-            <div className="space-y-3">
-              {analytics.departmentBreakdown.map((dept, i) => {
-                const max = Math.max(...analytics.departmentBreakdown.map((d) => d.count));
-                const pct = max > 0 ? (dept.count / max) * 100 : 0;
-                const DEPT_COLORS = ["#0d7377", "#e8722a", "#22c55e", "#6366f1", "#f59e0b", "#0a5c5f", "#c95d1b", "#8b5cf6", "#06b6d4", "#64748b"];
-                return (
-                  <div key={dept.department}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-slate-600">{dept.department}</span>
-                      <span className="text-xs font-bold text-slate-900">{dept.count}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ delay: 0.85 + i * 0.05, duration: 0.6, ease: "easeOut" }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {analytics.departmentLocked ? (
+              <div className="mt-6 mb-2 flex flex-col items-center justify-center text-center py-8">
+                <span className="text-3xl mb-3">🔒</span>
+                <p className="text-sm font-semibold text-slate-700">Datos ocultos hasta completar la participación</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  No se muestran los conteos por departamento para que no se pueda identificar quién ha respondido o quién falta. Al alcanzar el umbral de participación verás cada departamento, con los de menos de 5 empleados agrupados como "General".
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-slate-400 mb-5">Departamentos con menos de 5 empleados o menos de 5 respuestas se agrupan como "General"</p>
+                <div className="space-y-3">
+                  {analytics.departmentBreakdown.map((dept, i) => {
+                    const max = Math.max(...analytics.departmentBreakdown.map((d) => d.count));
+                    const pct = max > 0 ? (dept.count / max) * 100 : 0;
+                    const DEPT_COLORS = ["#0d7377", "#e8722a", "#22c55e", "#6366f1", "#f59e0b", "#0a5c5f", "#c95d1b", "#8b5cf6", "#06b6d4", "#64748b"];
+                    return (
+                      <div key={dept.department}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-slate-600">{dept.department}</span>
+                          <span className="text-xs font-bold text-slate-900">{dept.count}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ delay: 0.85 + i * 0.05, duration: 0.6, ease: "easeOut" }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </motion.div>
         )}
 

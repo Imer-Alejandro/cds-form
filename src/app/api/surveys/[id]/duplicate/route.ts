@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT, canManageSurvey } from "@/lib/auth";
+import { verifyJWT, canManageSurvey, isAllowedOrigin } from "@/lib/auth";
 
 // POST /api/surveys/[id]/duplicate - Duplicate a survey with blank responses
 export async function POST(
@@ -8,6 +8,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const sessionCookie = request.cookies.get("sdc_session")?.value;
     const session = sessionCookie ? await verifyJWT(sessionCookie) : null;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT, canManageSurvey, canViewSurvey } from "@/lib/auth";
+import { verifyJWT, canManageSurvey, canViewSurvey, isAllowedOrigin } from "@/lib/auth";
 
 // GET /api/surveys/[id] - Get a specific survey
 export async function GET(
@@ -63,6 +63,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const {
@@ -73,6 +77,7 @@ export async function PUT(
       showProgressBar,
       randomizeQuestions,
       expiresAt,
+      participationThreshold,
     } = body;
 
     const sessionCookie = request.cookies.get("sdc_session")?.value;
@@ -106,6 +111,9 @@ export async function PUT(
         ...(showProgressBar !== undefined && { showProgressBar }),
         ...(randomizeQuestions !== undefined && { randomizeQuestions }),
         ...(expiresAt && { expiresAt: new Date(expiresAt) }),
+        ...(participationThreshold !== undefined && {
+          participationThreshold: Math.min(100, Math.max(1, Number(participationThreshold) || 100)),
+        }),
         ...(isPublished && !existing?.publishedAt && { publishedAt: new Date() }),
       },
       include: {
@@ -131,6 +139,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const sessionCookie = request.cookies.get("sdc_session")?.value;
     const session = sessionCookie ? await verifyJWT(sessionCookie) : null;

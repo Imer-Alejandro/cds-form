@@ -23,7 +23,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { COMPANY_DEPARTMENTS, PRIVATE_DEPARTMENTS } from "@/lib/departments";
+import { COMPANY_DEPARTMENTS, isPrivateDepartment } from "@/lib/departments";
 
 interface Question {
   id: string;
@@ -45,6 +45,7 @@ interface Survey {
   description?: string;
   status: string;
   isPublished: boolean;
+  participationThreshold?: number;
   questions: Question[];
 }
 
@@ -177,6 +178,7 @@ export default function SurveyEditorPage() {
   const [newOption, setNewOption] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [savingQuestion, setSavingQuestion] = useState(false);
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -382,6 +384,24 @@ export default function SurveyEditorPage() {
     }
   }
 
+  async function handleSaveThreshold(value: number) {
+    setSavingThreshold(true);
+    try {
+      const response = await fetch(`/api/surveys/${surveyId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participationThreshold: value }),
+      });
+      if (!response.ok) throw new Error("Failed");
+      setSurvey((prev) => prev ? { ...prev, participationThreshold: value } : prev);
+      showToast("Umbral de participación guardado", "success");
+    } catch (error) {
+      showToast("Error al guardar el umbral", "error");
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner text="Cargando encuesta..." />;
   if (!survey) return null;
 
@@ -415,6 +435,24 @@ export default function SurveyEditorPage() {
                     {survey.questions.length} {survey.questions.length === 1 ? "pregunta" : "preguntas"}
                   </span>
                 </div>
+                {survey.questions.some((q) => q.type === "DEPARTMENT_SELECT") && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50/80 p-3">
+                    <span className="text-sm font-semibold text-slate-700">Umbral de participación</span>
+                    <select
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0d7377]/30"
+                      value={survey.participationThreshold ?? 100}
+                      disabled={savingThreshold}
+                      onChange={(e) => handleSaveThreshold(Number(e.target.value))}
+                    >
+                      {[100, 95, 90, 85, 80, 70, 60, 50].map((v) => (
+                        <option key={v} value={v}>{v}%</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-400">
+                      Los resultados por departamento se revelan al alcanzar este % de participación.
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2 shrink-0">
                 <div className="flex flex-wrap gap-2">
@@ -523,7 +561,7 @@ export default function SurveyEditorPage() {
                   <div key={dept} className="flex items-center gap-2 bg-white rounded-lg border border-teal-200 px-3 py-2">
                     <span className="text-sm text-teal-400 w-5">{i + 1}.</span>
                     <span className="flex-1 text-sm text-slate-900">{dept}</span>
-                    {PRIVATE_DEPARTMENTS.includes(dept) && (
+                    {isPrivateDepartment(dept) && (
                       <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded whitespace-nowrap">Anónimo (&lt;5)</span>
                     )}
                   </div>

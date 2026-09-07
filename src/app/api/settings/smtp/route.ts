@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resetTransporter } from "@/lib/email";
+import { getSessionFromRequest, isAllowedOrigin } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const config = await prisma.sMTPConfig.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: "desc" },
@@ -28,6 +34,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Solo el administrador puede configurar SMTP" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { host, port, user, password, fromName, fromEmail, secure } = body;
 

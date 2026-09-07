@@ -48,6 +48,7 @@ model Survey {
   allowMultiple     Boolean   @default(false)
   allowAnonymous    Boolean   @default(true)
   requireEmail      Boolean   @default(false)
+  participationThreshold Int @default(100)
   
   // Dates
   createdAt         DateTime  @default(now())

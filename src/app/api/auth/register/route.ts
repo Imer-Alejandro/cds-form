@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyMagicToken, hashPassword } from "@/lib/auth";
+import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    if (!rateLimit(ipKey(ip, "register"), 10, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const token = (body.token || "").toString();
     const name = (body.name || "").trim();

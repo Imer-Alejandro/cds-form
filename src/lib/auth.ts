@@ -1,4 +1,6 @@
-const SECRET = process.env.AUTH_SECRET || "replace_this_with_strong_secret";
+const SECRET = (process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  "replace_this_with_strong_secret") as string;
 
 function toBase64UrlFromBytes(bytes: Uint8Array) {
   // base64
@@ -64,7 +66,10 @@ export async function verifyPassword(password: string, storedHash: string | null
 
   const crypto = await import("crypto");
   const derived = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(expectedHash), Buffer.from(derived));
+  const expectedBuf = Buffer.from(expectedHash);
+  const derivedBuf = Buffer.from(derived);
+  if (expectedBuf.length !== derivedBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, derivedBuf);
 }
 
 export async function signJWT(payload: Record<string, any>, expiresInSec = 60 * 60 * 24 * 7) {
@@ -134,4 +139,39 @@ export async function generateMagicToken(payload: Record<string, any>, ttlSec = 
 
 export async function verifyMagicToken(token: string) {
   return verifyJWT(token);
+}
+
+// Helper to require an authenticated session from a NextRequest cookie.
+// Returns the session or null.
+export async function getSessionFromRequest(request: { cookies: { get(name: string): { value?: string } | undefined } }) {
+  const token = request.cookies.get("sdc_session")?.value;
+  if (!token) return null;
+  return verifyJWT(token);
+}
+
+// CSRF protection: validate the Origin/Referer header for state-changing
+// requests to prevent cross-site request forgery.
+// Returns true when the request is allowed.
+export function isAllowedOrigin(request: { headers: { get(name: string): string | null } }) {
+  if (process.env.NODE_ENV === "development") return true;
+
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const source = origin || referer;
+  if (!source) return false;
+
+  try {
+    const sourceOrigin = new URL(source).origin;
+    const allowedOrigins = [
+      process.env.APP_URL,
+      process.env.NEXTAUTH_URL,
+      process.env.NEXT_PUBLIC_BASE_URL,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    ].filter(Boolean) as string[];
+
+    if (allowedOrigins.length === 0) return true;
+    return allowedOrigins.some((o) => o === sourceOrigin);
+  } catch {
+    return false;
+  }
 }

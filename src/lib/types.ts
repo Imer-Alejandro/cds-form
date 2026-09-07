@@ -1,8 +1,20 @@
+export type QuestionType =
+  | "SHORT_TEXT"
+  | "LONG_TEXT"
+  | "MULTIPLE_CHOICE"
+  | "CHECKBOX"
+  | "RATING"
+  | "SCALE"
+  | "DATE"
+  | "EMAIL"
+  | "NET_PROMOTER_SCORE"
+  | "DEPARTMENT_SELECT";
+
 export interface SurveyQuestion {
   id: string;
   title: string;
   description?: string;
-  type: "SHORT_TEXT" | "LONG_TEXT" | "MULTIPLE_CHOICE" | "CHECKBOX" | "RATING" | "SCALE" | "DATE" | "EMAIL" | "NET_PROMOTER_SCORE";
+  type: QuestionType;
   required: boolean;
   order: number;
   options?: string[];

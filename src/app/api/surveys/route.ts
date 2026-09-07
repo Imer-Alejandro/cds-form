@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
+import { verifyJWT, buildSurveyAccessFilter, isAllowedOrigin } from "@/lib/auth";
 
 // GET /api/surveys - Get all surveys with filtering
 export async function GET(request: NextRequest) {
@@ -75,8 +75,12 @@ export async function GET(request: NextRequest) {
 // POST /api/surveys - Create a new survey
 export async function POST(request: NextRequest) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, participationThreshold } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -96,6 +100,10 @@ export async function POST(request: NextRequest) {
         title,
         description,
         createdBy: session.userId,
+        participationThreshold:
+          participationThreshold !== undefined
+            ? Math.min(100, Math.max(1, Number(participationThreshold) || 100))
+            : undefined,
         metadata: {
           create: {},
         },

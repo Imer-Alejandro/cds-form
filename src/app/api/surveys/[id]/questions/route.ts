@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT, canManageSurvey } from "@/lib/auth";
+import { verifyJWT, canManageSurvey, isAllowedOrigin } from "@/lib/auth";
 
 async function authorizeSurvey(request: NextRequest, surveyId: string) {
   const sessionCookie = request.cookies.get("sdc_session")?.value;
@@ -20,12 +20,20 @@ async function authorizeSurvey(request: NextRequest, surveyId: string) {
   return { authorized: true, survey } as const;
 }
 
+async function csrfGuard(request: NextRequest) {
+  return isAllowedOrigin(request);
+}
+
 // POST /api/surveys/[id]/questions - Add a question to survey
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await csrfGuard(request))) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { title, description, type, required, options, minValue, maxValue, minLabel, maxLabel } =
@@ -109,6 +117,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await csrfGuard(request))) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const auth = await authorizeSurvey(request, id);
     if (!auth.authorized) {
@@ -160,6 +172,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await csrfGuard(request))) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const auth = await authorizeSurvey(request, id);
     if (!auth.authorized) {
@@ -195,6 +211,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await csrfGuard(request))) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
     const { id } = await params;
     const auth = await authorizeSurvey(request, id);
     if (!auth.authorized) {
@@ -209,9 +229,6 @@ export async function PATCH(
         { status: 400 }
       );
     }
-
-    const values = orderedIds.map((_: string, index: number) => index + 1);
-    const placeholders = orderedIds.map((_: string, index: number) => `$${index + 1}`);
 
     await prisma.$transaction(
       orderedIds.map((questionId: string, index: number) =>

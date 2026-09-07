@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { getSessionFromRequest, isAllowedOrigin } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isAllowedOrigin(request)) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { to } = await request.json();
 
     if (!to) {

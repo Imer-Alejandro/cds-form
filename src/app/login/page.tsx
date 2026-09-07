@@ -5,16 +5,30 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<null | "idle" | "sending" | "sent" | "error">("idle");
+  const [status, setStatus] = useState<null | "idle" | "sending" | "sent" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [registered, setRegistered] = useState(false);
+  const [resetToken, setResetToken] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (window.location.search.includes("registered=1")) {
       setRegistered(true);
+      window.history.replaceState({}, "", "/login");
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "1" && params.get("token") && params.get("email")) {
+      setMode("reset");
+      setStatus("idle");
+      setErrorMsg("");
+      setResetToken(params.get("token") || "");
+      setResetEmail(params.get("email") || "");
+      setEmail(params.get("email") || "");
       window.history.replaceState({}, "", "/login");
     }
   }, []);
@@ -23,6 +37,59 @@ export default function LoginPage() {
     e.preventDefault();
     setStatus("sending");
     setErrorMsg("");
+
+    if (mode === "reset") {
+      if (resetToken) {
+        if (password.length < 6) {
+          setErrorMsg("La contraseña debe tener al menos 6 caracteres.");
+          setStatus("error");
+          return;
+        }
+        if (password !== confirmPassword) {
+          setErrorMsg("Las contraseñas no coinciden.");
+          setStatus("error");
+          return;
+        }
+        try {
+          const res = await fetch("/api/auth/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: resetEmail, token: resetToken, password }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setStatus("done");
+            setPassword("");
+            setConfirmPassword("");
+          } else {
+            setErrorMsg(data.error || "No se pudo restablecer la contraseña.");
+            setStatus("error");
+          }
+        } catch {
+          setErrorMsg("No se pudo restablecer la contraseña. Inténtalo de nuevo.");
+          setStatus("error");
+        }
+      } else {
+        try {
+          const res = await fetch("/api/auth/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setStatus("sent");
+          } else {
+            setErrorMsg(data.error || "No se pudo enviar el enlace de restablecimiento.");
+            setStatus("error");
+          }
+        } catch {
+          setErrorMsg("No se pudo enviar el enlace de restablecimiento.");
+          setStatus("error");
+        }
+      }
+      return;
+    }
 
     if (mode === "login") {
       try {
@@ -77,18 +144,22 @@ export default function LoginPage() {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-1">
-          {mode === "login" ? "Iniciar sesión" : "Registrarme"}
+          {mode === "login" ? "Iniciar sesión" : mode === "reset" ? (resetToken ? "Nueva contraseña" : "Restablecer contraseña") : "Registrarme"}
         </h1>
         <p className="text-sm text-slate-500 mb-6">
           {mode === "login"
             ? "Ingresa tus credenciales corporativas para acceder a tus encuestas."
-            : "Ingresa tu correo corporativo y te enviaremos un enlace para crear tus credenciales."}
+            : mode === "reset"
+              ? resetToken
+                ? "Elige una nueva contraseña para tu cuenta corporativa."
+                : "Ingresa tu correo corporativo y te enviaremos un enlace para restablecer tu contraseña."
+              : "Ingresa tu correo corporativo y te enviaremos un enlace para crear tus credenciales."}
         </p>
 
         <div className="mb-4 flex rounded-lg border border-slate-200 p-1">
           <button
             type="button"
-            onClick={() => { setMode("login"); setStatus("idle"); setErrorMsg(""); }}
+            onClick={() => { setMode("login"); setStatus("idle"); setErrorMsg(""); setResetToken(""); setPassword(""); setConfirmPassword(""); }}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${mode === "login" ? "bg-[#0d7377] text-white" : "text-slate-600"}`}
           >
             Ingresar
@@ -110,8 +181,9 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              readOnly={!!resetToken}
               placeholder="usuario@sanchezbusinesscorp.com"
-              className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm focus:border-[#0d7377] focus:outline-none focus:ring-2 focus:ring-[#0d7377]/20 transition"
+              className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm focus:border-[#0d7377] focus:outline-none focus:ring-2 focus:ring-[#0d7377]/20 transition disabled:bg-slate-100"
             />
           </div>
 
@@ -122,34 +194,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   disabled={status === "sending"}
-                  onClick={() => {
-                    if (!email) {
-                      setErrorMsg("Escribe tu correo para enviarte el enlace de acceso.");
-                      setStatus("error");
-                      return;
-                    }
-                    setStatus("sending");
-                    setErrorMsg("");
-                    fetch("/api/auth/send-link", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email, mode: "login" }),
-                    })
-                      .then((r) => r.json())
-                      .then((data) => {
-                        if (data.success) {
-                          setStatus("sent");
-                          setErrorMsg("");
-                        } else {
-                          setErrorMsg(data.error || "No se pudo enviar el enlace.");
-                          setStatus("error");
-                        }
-                      })
-                      .catch(() => {
-                        setErrorMsg("No se pudo enviar el enlace.");
-                        setStatus("error");
-                      });
-                  }}
+                  onClick={() => { setMode("reset"); setStatus("idle"); setErrorMsg(""); setResetToken(""); }}
                   className="text-xs font-medium text-[#0d7377] hover:text-[#0a5c5f] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ¿Olvidaste tu contraseña?
@@ -166,6 +211,35 @@ export default function LoginPage() {
             </div>
           )}
 
+          {mode === "reset" && resetToken && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Nueva contraseña</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm focus:border-[#0d7377] focus:outline-none focus:ring-2 focus:ring-[#0d7377]/20 transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Confirmar contraseña</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                  className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm focus:border-[#0d7377] focus:outline-none focus:ring-2 focus:ring-[#0d7377]/20 transition"
+                />
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={status === "sending"}
@@ -175,7 +249,11 @@ export default function LoginPage() {
               ? "Enviando..."
               : mode === "login"
                 ? "Iniciar sesión"
-                : "Enviar enlace de registro"}
+                : mode === "reset"
+                  ? resetToken
+                    ? "Restablecer contraseña"
+                    : "Enviar enlace de restablecimiento"
+                  : "Enviar enlace de registro"}
           </button>
         </form>
 
@@ -189,12 +267,37 @@ export default function LoginPage() {
           <p className="mt-4 text-sm text-emerald-600 font-medium">
             {mode === "login"
               ? "Enlace de acceso enviado. Revisa tu correo corporativo."
-              : "Enlace de registro enviado. Revisa tu correo corporativo para crear tus credenciales."}
+              : mode === "reset"
+                ? "Enlace de restablecimiento enviado. Revisa tu correo corporativo."
+                : "Enlace de registro enviado. Revisa tu correo corporativo para crear tus credenciales."}
           </p>
+        )}
+
+        {status === "done" && (
+          <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            Contraseña actualizada correctamente.{" "}
+            <button
+              type="button"
+              className="font-semibold text-[#0d7377] hover:text-[#0a5c5f]"
+              onClick={() => { setMode("login"); setStatus("idle"); setPassword(""); setResetToken(""); }}
+            >
+              Inicia sesión
+            </button>
+          </div>
         )}
 
         {status === "error" && (
           <p className="mt-4 text-sm text-red-600 font-medium">{errorMsg}</p>
+        )}
+
+        {mode === "reset" && !resetToken && status !== "sent" && (
+          <button
+            type="button"
+            onClick={() => { setMode("login"); setStatus("idle"); setErrorMsg(""); }}
+            className="mt-4 text-xs font-medium text-[#0d7377] hover:text-[#0a5c5f]"
+          >
+            ← Volver a iniciar sesión
+          </button>
         )}
       </div>
     </main>

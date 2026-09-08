@@ -161,7 +161,11 @@ export function isAllowedOrigin(request: { headers: { get(name: string): string 
   if (!source) return false;
 
   try {
-    const sourceOrigin = new URL(source).origin;
+    const sourceUrl = new URL(source);
+    const host = request.headers.get("host");
+    if (host && sourceUrl.host === host) return true;
+
+    const sourceOrigin = sourceUrl.origin;
     const allowedOrigins = [
       process.env.APP_URL,
       process.env.NEXTAUTH_URL,

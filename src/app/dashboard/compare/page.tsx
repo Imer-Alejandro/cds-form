@@ -25,6 +25,7 @@ interface Survey {
   id: string;
   title: string;
   status: string;
+  createdAt: string;
   _count: { questions: number; responses: number };
 }
 
@@ -154,7 +155,7 @@ export default function ComparePage() {
               >
                 <option value="">Seleccionar encuesta A...</option>
                 {surveys.map((s) => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
+                  <option key={s.id} value={s.id}>{s.title} ({new Date(s.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })})</option>
                 ))}
               </select>
             </div>
@@ -171,7 +172,7 @@ export default function ComparePage() {
               >
                 <option value="">Seleccionar encuesta B...</option>
                 {surveys.filter((s) => s.id !== surveyA).map((s) => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
+                  <option key={s.id} value={s.id}>{s.title} ({new Date(s.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })})</option>
                 ))}
               </select>
             </div>

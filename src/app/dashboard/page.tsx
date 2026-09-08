@@ -767,6 +767,8 @@ export default function Dashboard() {
                         <span>{survey.metadata?.totalResponses ?? 0} respuestas</span>
                         <span>•</span>
                         <span>{(survey.metadata?.completionRate ?? 0).toFixed(0)}% finalización</span>
+                        <span>•</span>
+                        <span>{new Date(survey.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })}</span>
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0 flex-wrap justify-end">

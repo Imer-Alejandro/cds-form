@@ -25,8 +25,6 @@ import {
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-  ComposedChart,
-  Line,
 } from "recharts";
 
 interface Survey {

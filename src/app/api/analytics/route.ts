@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
-import { TOTAL_EMPLOYEES, isPrivateDepartment } from "@/lib/departments";
+import {
+  TOTAL_EMPLOYEES,
+  isPrivateDepartment,
+  COMPANY_DEPARTMENTS,
+  getDepartmentSize,
+} from "@/lib/departments";
 
 const MIN_DEPT_RESPONSES = 5;
 
@@ -217,6 +222,82 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.count - a.count);
     }
 
+    // Seguimiento de participación por departamento.
+    // Se calcula SIEMPRE (aunque los resultados estén bloqueados por el umbral),
+    // para que el responsable sepa qué departamentos faltan por completar.
+    // Solo expone conteos de finalización, nunca las respuestas.
+    const departmentProgress: {
+      department: string;
+      expected: number;
+      completed: number;
+      missing: number;
+      percent: number;
+      complete: boolean;
+      pending: boolean;
+    }[] = [];
+
+    if (surveyId) {
+      const countsByDept: Record<string, number> = {};
+      for (const resp of completedResponses) {
+        const dept = resp.respondentDepartment?.trim() || "__none__";
+        countsByDept[dept] = (countsByDept[dept] || 0) + 1;
+      }
+
+      // Incluye departamentos no listados que sí respondieron (0 empleados esperados)
+      const extraDepartments = Object.keys(countsByDept).filter(
+        (dept) => dept !== "__none__" && !(COMPANY_DEPARTMENTS as readonly string[]).includes(dept)
+      );
+
+      for (const dept of [...COMPANY_DEPARTMENTS, ...extraDepartments]) {
+        const expected = getDepartmentSize(dept);
+        const completed = countsByDept[dept] || 0;
+        if (expected > 0) {
+          const capped = Math.min(completed, expected);
+          const missing = Math.max(expected - completed, 0);
+          departmentProgress.push({
+            department: dept,
+            expected,
+            completed: capped,
+            missing,
+            percent: Math.round((capped / expected) * 100),
+            complete: missing === 0,
+            pending: missing > 0,
+          });
+        } else {
+          // Sin meta: fila informativa (departamento no listado o sin tamaño definido)
+          departmentProgress.push({
+            department: dept,
+            expected: 0,
+            completed,
+            missing: 0,
+            percent: 100,
+            complete: false,
+            pending: false,
+          });
+        }
+      }
+
+      departmentProgress.sort((a, b) => {
+        const aTracked = a.expected > 0;
+        const bTracked = b.expected > 0;
+        if (aTracked !== bTracked) return aTracked ? -1 : 1;
+        if (aTracked) return b.missing - a.missing || a.percent - b.percent;
+        return b.completed - a.completed;
+      });
+
+      // Fila informativa de respuestas sin departamento asignado (siempre visible)
+      const withoutDept = countsByDept["__none__"] || 0;
+      departmentProgress.push({
+        department: "Sin especificar",
+        expected: 0,
+        completed: withoutDept,
+        missing: 0,
+        percent: 100,
+        complete: false,
+        pending: false,
+      });
+    }
+
     // Per-question averages (only when a specific survey is requested)
     let questionAverages: { questionId: string; title: string; type: string; avg: number; count: number }[] = [];
     if (surveyId && surveys.length === 1) {
@@ -254,6 +335,7 @@ export async function GET(request: NextRequest) {
       participation: participationBySurvey.filter((p) => p.hasDeptQuestion),
       departmentBreakdown,
       departmentLocked: locked,
+      departmentProgress,
       questionAverages,
     });
   } catch (error) {

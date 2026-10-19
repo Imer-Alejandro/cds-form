@@ -72,6 +72,16 @@ interface SurveyResult {
   questions: Question[];
 }
 
+interface DepartmentProgress {
+  department: string;
+  expected: number;
+  completed: number;
+  missing: number;
+  percent: number;
+  complete: boolean;
+  pending: boolean;
+}
+
 const PIE_COLORS = ["#0d7377", "#e8722a", "#22c55e", "#f59e0b", "#0a5c5f", "#c95d1b", "#06b6d4", "#64748b"];
 
 function parseOptions(q: Question): string[] {
@@ -220,6 +230,83 @@ function getQuestionAnalysis(question: Question, responses: Response[]) {
   return { total: answers.length };
 }
 
+function DepartmentTracking({ items }: { items: DepartmentProgress[] }) {
+  if (items.length === 0) return null;
+
+  const tracked = items.filter((d) => d.expected > 0);
+  const info = items.filter((d) => d.expected <= 0);
+  const pendingCount = tracked.filter((d) => d.pending).length;
+  const completedCount = tracked.filter((d) => d.complete).length;
+
+  return (
+    <div className="w-full text-left">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">Seguimiento por Departamento</h2>
+          <p className="text-xs text-slate-400 mt-0.5 max-w-xl">
+            Avance de quiénes ya completaron la encuesta por departamento (no revela
+            las respuestas). Úsalo para saber en qué áreas conviene insistir.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 tabular-nums">
+            {pendingCount} pendiente{pendingCount === 1 ? "" : "s"}
+          </span>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 tabular-nums">
+            {completedCount} completo{completedCount === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {tracked.map((dept) => (
+          <div key={dept.department}>
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <span className="text-xs font-medium text-slate-600 truncate">{dept.department}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-medium text-slate-500 tabular-nums">
+                  {dept.completed} de {dept.expected}
+                </span>
+                {dept.pending ? (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 tabular-nums">
+                    Faltan {dept.missing}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    Completo
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#0d7377] to-emerald-400 transition-all"
+                style={{ width: `${Math.max(2, dept.percent)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {info.length > 0 && (
+        <div className="mt-4 space-y-1.5 border-t border-slate-100 pt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Sin meta asignada
+          </p>
+          {info.map((dept) => (
+            <div key={dept.department} className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-slate-500 truncate">{dept.department}</span>
+              <span className="text-xs font-medium text-slate-400 tabular-nums">
+                {dept.completed} respuesta{dept.completed === 1 ? "" : "s"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SurveyResultsPage() {
   const params = useParams();
   const router = useRouter();
@@ -227,6 +314,7 @@ export default function SurveyResultsPage() {
 
   const [survey, setSurvey] = useState<SurveyResult | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
+  const [departmentProgress, setDepartmentProgress] = useState<DepartmentProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"charts" | "responses">("charts");
@@ -237,18 +325,21 @@ export default function SurveyResultsPage() {
 
   async function fetchSurveyData() {
     try {
-      const [surveyRes, responsesRes] = await Promise.all([
+      const [surveyRes, responsesRes, analyticsRes] = await Promise.all([
         fetch(`/api/surveys/${surveyId}`),
         fetch(`/api/responses?surveyId=${surveyId}&limit=200`),
+        fetch(`/api/analytics?surveyId=${surveyId}`),
       ]);
 
       if (!surveyRes.ok) throw new Error("Survey not found");
 
       const surveyData = await surveyRes.json();
       const responsesData = await responsesRes.json();
+      const analyticsData = await analyticsRes.json();
 
       setSurvey(surveyData);
       setResponses(responsesData.responses || []);
+      setDepartmentProgress(Array.isArray(analyticsData?.departmentProgress) ? analyticsData.departmentProgress : []);
     } catch (error) {
       showToast("Error al cargar los resultados", "error");
       router.push("/dashboard");
@@ -315,7 +406,7 @@ export default function SurveyResultsPage() {
   if (resultsLocked) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-6">
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-2xl space-y-6">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -355,9 +446,9 @@ export default function SurveyResultsPage() {
               </div>
 
               <p className="mt-4 text-xs text-slate-400 leading-relaxed">
-                Este bloqueo evita identificar quién ha respondido o quién falta. Al alcanzar el{" "}
-                {threshold}% de participación, las respuestas completadas y los análisis se mostrarán
-                automáticamente.
+                Las respuestas y los análisis permanecen ocultos hasta alcanzar el umbral, para
+                proteger la confidencialidad. Puedes usar el seguimiento por departamento para
+                saber qué áreas faltan por completar sin revelar las respuestas.
               </p>
             </div>
 
@@ -369,6 +460,12 @@ export default function SurveyResultsPage() {
                 Compartir encuesta
               </Button>
             </div>
+
+            {departmentProgress.length > 0 && (
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <DepartmentTracking items={departmentProgress} />
+              </div>
+            )}
           </motion.div>
         </div>
       </main>
@@ -465,6 +562,18 @@ export default function SurveyResultsPage() {
               </motion.div>
             );
           })()
+        )}
+
+        {/* Seguimiento por departamento */}
+        {departmentProgress.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5"
+          >
+            <DepartmentTracking items={departmentProgress} />
+          </motion.div>
         )}
 
         {/* Tabs */}

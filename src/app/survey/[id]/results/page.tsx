@@ -314,6 +314,7 @@ export default function SurveyResultsPage() {
 
   const [survey, setSurvey] = useState<SurveyResult | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
+  const [thresholdBypassed, setThresholdBypassed] = useState(false);
   const [departmentProgress, setDepartmentProgress] = useState<DepartmentProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -339,6 +340,7 @@ export default function SurveyResultsPage() {
 
       setSurvey(surveyData);
       setResponses(responsesData.responses || []);
+      setThresholdBypassed(responsesData.thresholdBypassed === true);
       setDepartmentProgress(Array.isArray(analyticsData?.departmentProgress) ? analyticsData.departmentProgress : []);
     } catch (error) {
       showToast("Error al cargar los resultados", "error");
@@ -400,7 +402,7 @@ export default function SurveyResultsPage() {
   const threshold = survey.participationThreshold ?? 100;
   const completedForThreshold = Math.min(survey.metadata.completedResponses, TOTAL_EMPLOYEES);
   const percentCompleted = hasDeptQuestion ? Math.round((completedForThreshold / TOTAL_EMPLOYEES) * 100) : 100;
-  const resultsLocked = hasDeptQuestion && percentCompleted < threshold;
+  const resultsLocked = hasDeptQuestion && percentCompleted < threshold && !thresholdBypassed;
   const missing = TOTAL_EMPLOYEES - completedForThreshold;
 
   if (resultsLocked) {
@@ -518,7 +520,7 @@ export default function SurveyResultsPage() {
             const percent = Math.round((completed / TOTAL_EMPLOYEES) * 100);
             const missing = TOTAL_EMPLOYEES - completed;
             const threshold = survey.participationThreshold ?? 100;
-            const locked = percent < threshold;
+            const locked = percent < threshold && !thresholdBypassed;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}

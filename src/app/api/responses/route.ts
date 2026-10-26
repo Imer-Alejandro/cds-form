@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildExecutiveSummaryEmail, sendEmail } from "@/lib/email";
-import { verifyJWT, canViewSurvey, getSessionFromRequest } from "@/lib/auth";
+import {
+  verifyJWT,
+  canViewSurvey,
+  canBypassParticipationThreshold,
+  getSessionFromRequest,
+} from "@/lib/auth";
 import { rateLimit, getClientIp, ipKey } from "@/lib/rate-limit";
 import { TOTAL_EMPLOYEES } from "@/lib/departments";
 
@@ -230,8 +235,9 @@ export async function GET(request: NextRequest) {
     // Bloquear la lectura de respuestas hasta alcanzar el umbral de participación
     // (solo para sesiones autenticadas; los respondientes públicos consultan su propio estado)
     const session = await getSessionFromRequest(request);
+    const thresholdBypassed = canBypassParticipationThreshold(session);
     const hasDeptQuestion = access.survey.questions.some((q: any) => q.type === "DEPARTMENT_SELECT");
-    if (session && hasDeptQuestion) {
+    if (session && hasDeptQuestion && !thresholdBypassed) {
       const completed = await prisma.response.count({
         where: { surveyId, status: "COMPLETED" },
       });
@@ -274,6 +280,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       responses,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      thresholdBypassed,
     });
   } catch (error) {
     console.error("Error fetching responses:", error);

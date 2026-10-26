@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT, buildSurveyAccessFilter } from "@/lib/auth";
+import {
+  verifyJWT,
+  buildSurveyAccessFilter,
+  canBypassParticipationThreshold,
+} from "@/lib/auth";
 import {
   TOTAL_EMPLOYEES,
   isPrivateDepartment,
@@ -26,6 +30,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+    const thresholdBypassed = canBypassParticipationThreshold(session);
 
     const accessFilter = buildSurveyAccessFilter(session);
 
@@ -183,7 +188,7 @@ export async function GET(request: NextRequest) {
         expected,
         threshold,
         percent: percentForSurvey,
-        locked: expected > 0 && percentForSurvey < threshold,
+        locked: !thresholdBypassed && expected > 0 && percentForSurvey < threshold,
       };
     });
 
@@ -194,10 +199,11 @@ export async function GET(request: NextRequest) {
     );
     const percent = expectedTotal > 0 ? Math.round((completedTotal / expectedTotal) * 100) : 0;
     const deptParticipation = participationBySurvey.filter((p) => p.hasDeptQuestion);
-    const locked =
+    const locked = !thresholdBypassed && (
       deptParticipation.every((p) => p.threshold === 100) && expectedTotal > 0 && completedTotal < expectedTotal
         ? true
-        : deptParticipation.some((p) => p.locked);
+        : deptParticipation.some((p) => p.locked)
+    );
 
     // Department breakdown with anonymity rules.
     // Hidden entirely until 100% participation; then departments with <5 employees OR <5 responses are merged into "General".
